@@ -5,10 +5,6 @@ defineEmits(['connect', 'close']);
 <template>
   <div class="modal-backdrop" @click.self="$emit('close')">
     <div class="modal-card">
-      <div class="icon-header">
-        <span class="wallet-icon">◎</span>
-      </div>
-
       <h2>Connect Wallet</h2>
       <p>
         To track milestones and receive bounties,<br>
@@ -50,19 +46,11 @@ defineEmits(['connect', 'close']);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.icon-header {
-  margin-bottom: 20px;
-}
-.wallet-icon {
-  font-size: 3rem;
-  color: #4ade80;
-  text-shadow: 0 0 20px rgba(74, 222, 128, 0.4);
-}
-
 h2 {
   font-family: 'Playfair Display', serif;
   font-size: 2rem;
   margin-bottom: 12px;
+  margin-top: 0;
   color: white;
 }
 

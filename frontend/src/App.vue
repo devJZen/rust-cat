@@ -2,20 +2,29 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import HeroOverlay from './components/HeroOverlay.vue';
 import PixelDashboard from './components/PixelDashboard.vue';
-//import CreateProject from './components/CreateProject.vue';   // 새로 만든 생성용
+import CreateProject from './components/CreateProject.vue';
+import ProjectDashboard from './components/ProjectDashboard.vue';
 import SideNavigation from './components/SideNavigation.vue';
-import WalletModal from './components/WalletModal.vue'; // Import Modal
+import WalletModal from './components/WalletModal.vue';
+import WalletInfo from './components/WalletInfo.vue';
+import Blog from './components/Blog.vue';
+import Leaderboard from './components/Leaderboard.vue';
 
 // --- State ---
 const isAppMode = ref(false);       // 화면 모드 (false: Hero, true: App/ZoomOut)
 const isWalletConnected = ref(false); // 지갑 연결 여부
 const showWalletModal = ref(false);   // 모달 표시 여부
-const isNavOpen = ref(true);
+const isNavOpen = ref(false); // 초기에는 접힌 상태
+const currentView = ref<'create' | 'dashboard' | 'blog' | 'leaderboard'>('dashboard'); // 현재 뷰
+const showWalletInfo = ref(false); // 지갑 정보 모달
 
 // --- Event Handlers ---
 
 // 1. Scroll / Wheel Handler
 const handleWheel = (e: WheelEvent) => {
+  // 지갑이 이미 연결되어 있으면 아무것도 안함
+  if (isWalletConnected.value) return;
+
   // 지갑 모달이 떠있으면 스크롤 무시
   if (showWalletModal.value) return;
 
@@ -24,22 +33,17 @@ const handleWheel = (e: WheelEvent) => {
     isAppMode.value = true;
   }
 
-  // Case B: App 모드에서...
-  else if (isAppMode.value) {
-    // 지갑 미연결 상태에서 추가 스크롤 시도 -> 모달 띄움
-    if (!isWalletConnected.value && Math.abs(e.deltaY) > 10) {
-      showWalletModal.value = true;
-    }
-    // 지갑 연결 상태에서 최상단 스크롤 업 -> Hero 복귀
-    else if (isWalletConnected.value && e.deltaY < 0 && window.scrollY === 0) {
-      // (선택 사항: 실제 앱 사용성을 위해 제거 가능)
-      // isAppMode.value = false;
-    }
+  // Case B: App 모드에서 지갑 미연결 상태에서만 모달 띄움
+  else if (isAppMode.value && !isWalletConnected.value && Math.abs(e.deltaY) > 10) {
+    showWalletModal.value = true;
   }
 };
 
 // 2. Keyboard Handler
 const handleKeydown = (e: KeyboardEvent) => {
+  // 지갑이 이미 연결되어 있으면 아무것도 안함
+  if (isWalletConnected.value) return;
+
   // App 모드이고, 지갑 연결 안됐고, 모달이 안 떠있으면 -> 키 입력 시 모달 띄움
   if (isAppMode.value && !isWalletConnected.value && !showWalletModal.value) {
     // ESC 키 등 특정 키 제외 가능
@@ -57,18 +61,38 @@ const triggerWalletGate = () => {
 };
 
 // --- Wallet Actions ---
-const connectWallet = () => {
-  // 실제 지갑 연동 로직이 들어갈 곳 (여기선 시뮬레이션)
-  setTimeout(() => {
+const connectWallet = async () => {
+  try {
+    // @ts-expect-error - Phantom wallet
+    if (!window.solana) {
+      alert('Please install Phantom wallet!');
+      return;
+    }
+
+    // @ts-expect-error - Phantom wallet API
+    const resp = await window.solana.connect();
+    console.log('Connected to wallet:', resp.publicKey.toString());
+
     isWalletConnected.value = true;
     showWalletModal.value = false;
-  }, 500);
+  } catch (err) {
+    console.error('Wallet connection failed:', err);
+    alert('Failed to connect wallet');
+  }
 };
 
 // --- Lifecycle ---
 onMounted(() => {
   window.addEventListener('wheel', handleWheel);
   window.addEventListener('keydown', handleKeydown);
+
+  // 페이지 로드 시 이미 연결된 지갑이 있는지 확인
+  // @ts-expect-error - Phantom wallet global
+  if (window.solana && window.solana.isConnected) {
+    console.log('Wallet already connected, skipping to dashboard');
+    isWalletConnected.value = true;
+    isAppMode.value = true;
+  }
 });
 
 onUnmounted(() => {
@@ -94,6 +118,16 @@ onUnmounted(() => {
         class="interaction-blocker"
         @click.stop="triggerWalletGate"
       ></div>
+
+      <!-- 1. Authenticated View (Wallet Connected) -->
+      <!-- 지갑 연결 후 현재 뷰에 따라 표시 -->
+      <div v-if="isWalletConnected" class="authenticated-layer">
+        <!-- Dashboard, Create Project, Blog, Leaderboard based on currentView -->
+        <ProjectDashboard v-if="currentView === 'dashboard'" @create-project="currentView = 'create'" />
+        <CreateProject v-else-if="currentView === 'create'" @project-created="currentView = 'dashboard'" />
+        <Blog v-else-if="currentView === 'blog'" />
+        <Leaderboard v-else-if="currentView === 'leaderboard'" />
+      </div>
     </div>
 
     <!-- 2. Hero Layer -->
@@ -105,14 +139,16 @@ onUnmounted(() => {
     </div>
 
     <!-- 3. Side Navigation -->
-    <!-- 사이드바도 지갑 연결 전에는 클릭 시 모달이 뜨게 하려면 interaction-blocker가 z-index로 덮어야 함 -->
-    <!-- 여기서는 UI 구조상 사이드바가 blocker보다 위에 있으면 클릭 가능하므로 z-index 조정 -->
+    <!-- 지갑 연결 후에만 표시 -->
     <SideNavigation
       class="side-nav-comp"
-      :visible="isAppMode"
+      :visible="isWalletConnected"
       :isOpen="isNavOpen"
       @toggle="isNavOpen = !isNavOpen"
-      @go-home="isAppMode = false"
+      @show-dashboard="currentView = 'dashboard'"
+      @show-wallet-info="showWalletInfo = true"
+      @show-blog="currentView = 'blog'"
+      @show-leaderboard="currentView = 'leaderboard'"
     />
 
     <!-- ★ Wallet Modal ★ -->
@@ -121,6 +157,15 @@ onUnmounted(() => {
         v-if="showWalletModal"
         @connect="connectWallet"
         @close="showWalletModal = false"
+      />
+    </Transition>
+
+    <!-- ★ Wallet Info Modal ★ -->
+    <Transition name="fade">
+      <WalletInfo
+        v-if="showWalletInfo"
+        @close="showWalletInfo = false"
+        @disconnect="isWalletConnected = false; isAppMode = false; currentView = 'dashboard'; showWalletInfo = false;"
       />
     </Transition>
 

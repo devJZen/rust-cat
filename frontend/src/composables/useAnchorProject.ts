@@ -3,11 +3,20 @@ import { ref } from 'vue';
 import { Connection, PublicKey, SystemProgram, clusterApiUrl } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
 
+// Mock 모드 (프로그램이 배포되지 않았을 때)
+const MOCK_MODE = true; // 실제 배포 후 false로 변경
+
 // 가상의 IDL (Smart Contract 인터페이스 정의)
 // 실제 프로젝트에서는 target/types/your_program.ts 에서 가져와야 함
 const IDL = {
+  "address": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
   "version": "0.1.0",
   "name": "trawelt_project",
+  "metadata": {
+    "name": "trawelt_project",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
       "name": "initializeProject",
@@ -22,10 +31,10 @@ const IDL = {
         { "name": "members", "type": { "vec": "publicKey" } }
       ]
     }
-  ]
+  ],
+  "accounts": [],
+  "types": []
 };
-
-const PROGRAM_ID = new PublicKey("YOUR_PROGRAM_ID_HERE"); // 배포한 SC 주소
 
 export function useAnchorProject() {
   const loading = ref(false);
@@ -42,30 +51,61 @@ export function useAnchorProject() {
     txHash.value = '';
 
     try {
+      // Mock 모드 (프로그램이 배포되지 않았을 때)
+      if (MOCK_MODE) {
+        // 시뮬레이션
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // 가짜 트랜잭션 해시 생성
+        const mockTxHash = '5' + 'A'.repeat(87); // 임시 해시
+        txHash.value = mockTxHash;
+
+        console.log("🎭 Mock Mode: Project Created!");
+        console.log("Project Name:", name);
+        console.log("Admins:", adminAddresses);
+        console.log("Members:", memberAddresses);
+
+        return mockTxHash;
+      }
+
+      // === 실제 온체인 모드 ===
       // 1. Provider 설정 (Phantom 등 브라우저 지갑 사용)
-      // @ts-ignore
-      const wallet = window.solana;
-      if (!wallet || !wallet.isPhantom) throw new Error("Phantom wallet not found");
+      // @ts-expect-error - Phantom wallet global
+      const phantomWallet = window.solana;
+      if (!phantomWallet || !phantomWallet.isPhantom) {
+        throw new Error("Phantom wallet not found");
+      }
+
+      // Phantom wallet을 Anchor가 이해할 수 있는 형식으로 래핑
+      const wallet = {
+        publicKey: phantomWallet.publicKey,
+        signTransaction: phantomWallet.signTransaction.bind(phantomWallet),
+        signAllTransactions: phantomWallet.signAllTransactions.bind(phantomWallet),
+      };
 
       const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
-      const provider = new anchor.AnchorProvider(connection, wallet, {});
+      const provider = new anchor.AnchorProvider(
+        connection,
+        wallet as anchor.Wallet,
+        { commitment: "confirmed" }
+      );
       anchor.setProvider(provider);
 
       // 2. Program 로드
-      const program = new anchor.Program(IDL as any, PROGRAM_ID, provider);
+      const program = new anchor.Program(IDL as unknown as anchor.Idl, provider);
 
       // 3. Project PDA (Project Wallet) 주소 유도
-      // 이름과 생성자 주소를 시드로 사용하여 고유한 지갑 주소 생성
+      const programId = new PublicKey(IDL.address);
       const [projectPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("project"), Buffer.from(name), provider.wallet.publicKey.toBuffer()],
-        program.programId
+        programId
       );
 
       // 4. 주소 변환 (String -> PublicKey)
       const admins = adminAddresses.map(addr => new PublicKey(addr));
       const members = memberAddresses.map(addr => new PublicKey(addr));
 
-      // 5. 트랜잭션 전송 (Anchor 최신 문법)
+      // 5. 트랜잭션 전송
       const tx = await program.methods
         .initializeProject(name, admins, members)
         .accounts({
@@ -81,9 +121,10 @@ export function useAnchorProject() {
 
       return projectPda.toString();
 
-    } catch (err: any) {
-      console.error(err);
-      error.value = err.message;
+    } catch (err) {
+      console.error("Error creating project:", err);
+      error.value = err instanceof Error ? err.message : 'Unknown error occurred';
+      throw err;
     } finally {
       loading.value = false;
     }

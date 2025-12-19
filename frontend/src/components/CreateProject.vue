@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAnchorProject } from '../composables/useAnchorProject';
 
 // --- State ---
 const projectName = ref('');
-const admins = ref<string[]>(['']); // 최소 1명
+const connectedWallet = ref(''); // 연결된 지갑 주소
 const members = ref<string[]>(['']);
 const integrations = ref({
   github: false,
@@ -14,6 +14,25 @@ const integrations = ref({
 // 배경 생성 관련 State
 const bgSeed = ref(Date.now());
 const generateBackground = () => { bgSeed.value = Date.now(); };
+
+// 지갑 주소 가져오기
+onMounted(async () => {
+  try {
+    // @ts-expect-error - Phantom wallet global
+    if (window.solana && window.solana.isConnected) {
+      // @ts-expect-error - Phantom wallet API
+      const publicKey = window.solana.publicKey;
+      if (publicKey) {
+        connectedWallet.value = publicKey.toString();
+      }
+    }
+  } catch (err) {
+    console.error('Failed to get wallet address:', err);
+  }
+});
+
+// --- Emits ---
+const emit = defineEmits(['project-created']);
 
 // --- Composables ---
 const { createProjectOnChain, loading, txHash, error } = useAnchorProject();
@@ -26,13 +45,26 @@ const removeField = (arr: string[], idx: number) => {
 
 const handleCreate = async () => {
   if (!projectName.value) return alert("Please enter a project name");
+  if (!connectedWallet.value) return alert("Please connect your wallet first");
 
-  // 유효한 주소만 필터링
-  const validAdmins = admins.value.filter(a => a.length > 30);
+  // Admin은 현재 연결된 지갑
+  const validAdmins = [connectedWallet.value];
+  // 유효한 멤버만 필터링
   const validMembers = members.value.filter(m => m.length > 30);
 
-  // 온체인 호출
-  await createProjectOnChain(projectName.value, validAdmins, validMembers);
+  try {
+    // 온체인 호출
+    await createProjectOnChain(projectName.value, validAdmins, validMembers);
+
+    // 성공 후 3초 뒤 대시보드로 이동
+    if (txHash.value) {
+      setTimeout(() => {
+        emit('project-created');
+      }, 3000);
+    }
+  } catch (err) {
+    console.error('Failed to create project:', err);
+  }
 };
 </script>
 
@@ -61,14 +93,16 @@ const handleCreate = async () => {
         <!-- 2. Role Management -->
         <div class="role-group">
           <div class="role-header">
-            <label>Project Admins (Wallet Address)</label>
-            <button class="btn-mini" @click="addField(admins)">+</button>
+            <label>Project Admin (Your Wallet)</label>
           </div>
-          <div class="dynamic-inputs">
-            <div v-for="(admin, idx) in admins" :key="'admin-'+idx" class="input-row">
-              <input v-model="admins[idx]" type="text" placeholder="Solana Address..." class="input-field" />
-              <button v-if="admins.length > 1" @click="removeField(admins, idx)" class="btn-remove">×</button>
-            </div>
+          <div class="input-row">
+            <input
+              :value="connectedWallet || 'Connecting...'"
+              type="text"
+              readonly
+              class="input-field input-readonly"
+              placeholder="Your connected wallet address"
+            />
           </div>
         </div>
 
@@ -147,19 +181,78 @@ const handleCreate = async () => {
   height: 100%;
   background: #050505;
   color: white;
-  padding: 40px 60px;
+  padding: 40px;
+  padding-right: 280px; /* SideNavigation 240px + 여유 40px */
   overflow-y: auto;
+  overflow-x: hidden;
   font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
 }
 
-.dashboard-header { margin-bottom: 40px; border-bottom: 1px solid #222; padding-bottom: 20px; }
-.dashboard-header h1 { font-family: 'Playfair Display', serif; font-size: 2.5rem; margin-bottom: 8px; color: white; }
+.dashboard-header {
+  margin-bottom: 40px;
+  border-bottom: 1px solid #222;
+  padding-bottom: 20px;
+}
+.dashboard-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+  color: white;
+}
 .dashboard-header p { color: #888; }
 
 .content-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 60px;
+  gap: 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* 반응형: 중간 화면 */
+@media (max-width: 1400px) {
+  .content-grid {
+    gap: 30px;
+  }
+
+  .create-dashboard {
+    padding: 30px;
+    padding-right: 260px; /* 240px + 20px */
+  }
+}
+
+/* 반응형: 작은 화면 (태블릿) */
+@media (max-width: 1024px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .create-dashboard {
+    padding: 30px;
+    padding-right: 110px; /* Collapsed 70px + 40px */
+  }
+
+  .dashboard-header h1 {
+    font-size: 2rem;
+  }
+}
+
+/* 반응형: 모바일 */
+@media (max-width: 768px) {
+  .create-dashboard {
+    padding: 20px;
+    padding-right: 90px; /* Collapsed 70px + 20px */
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .content-grid {
+    gap: 20px;
+  }
 }
 
 /* Form Styles */
@@ -177,15 +270,45 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
   border-radius: 6px;
   font-family: monospace;
   transition: border-color 0.2s;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  min-width: 0; /* flexbox overflow 방지 */
 }
 .input-field:focus { outline: none; border-color: #4ade80; }
+
+/* Readonly 입력 필드 (초록색 스타일) */
+.input-field.input-readonly {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: #4ade80;
+  color: #4ade80;
+  cursor: not-allowed;
+  font-weight: 500;
+}
+.input-field.input-readonly:focus {
+  border-color: #4ade80;
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.1);
+}
 
 .role-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .btn-mini { background: #222; border: none; color: #4ade80; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; }
 .btn-mini:hover { background: #333; }
 
-.input-row { display: flex; gap: 8px; margin-bottom: 8px; }
-.btn-remove { background: transparent; border: none; color: #ef4444; cursor: pointer; }
+.input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-width: 0; /* flexbox overflow 방지 */
+}
+.btn-remove {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+}
 
 /* Toggle Styles */
 .toggle-row {
@@ -206,6 +329,10 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
 .toggle-row.active .toggle-switch::after { left: 18px; }
 
 /* Visual Section */
+.visual-section {
+  min-width: 0; /* flexbox overflow 방지 */
+}
+
 .pixel-canvas {
   width: 100%;
   height: 200px;
@@ -218,6 +345,14 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
   overflow: hidden;
   margin-bottom: 12px;
   cursor: crosshair;
+}
+
+@media (max-width: 768px) {
+  .pixel-canvas {
+    height: 150px;
+    grid-template-columns: repeat(15, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+  }
 }
 .pixel-dot { width: 100%; height: 100%; transition: background-color 0.3s; }
 .pixel-dot:hover { background-color: #4ade80 !important; opacity: 1 !important; }

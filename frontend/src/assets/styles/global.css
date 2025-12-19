@@ -1,0 +1,441 @@
+/**
+ * Garden SOL - Global Styles
+ * Design System for Web3 Project Management Platform
+ */
+
+/* ==================== CSS Variables ==================== */
+:root {
+  /* Colors */
+  --color-primary: #4ade80;        /* Neon Green - Main accent */
+  --color-primary-dark: #22c55e;   /* Darker green for hover */
+  --color-primary-light: rgba(74, 222, 128, 0.1); /* Light green background */
+
+  --color-danger: #ef4444;         /* Red - Error/Delete */
+  --color-danger-light: rgba(239, 68, 68, 0.05); /* Light red background */
+
+  --color-bg-dark: #050505;        /* Deep Black - Main background */
+  --color-bg-darker: #0a0a0a;      /* Slightly lighter black */
+  --color-bg-card: #111;           /* Card background */
+
+  --color-border: #222;            /* Default border */
+  --color-border-light: #333;      /* Lighter border */
+  --color-border-lighter: #444;    /* Even lighter border */
+
+  --color-text-primary: #ffffff;   /* White text */
+  --color-text-secondary: #ccc;    /* Light gray */
+  --color-text-muted: #888;        /* Gray */
+  --color-text-dim: #666;          /* Dark gray */
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  --spacing-3xl: 40px;
+  --spacing-4xl: 60px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  --transition-cubic: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Shadows */
+  --shadow-glow-green: 0 0 20px rgba(74, 222, 128, 0.3);
+  --shadow-glow-sm: 0 0 5px currentColor;
+}
+
+/* ==================== Reset & Base ==================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg-dark);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==================== Typography ==================== */
+.heading-hero {
+  font-family: var(--font-serif);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.heading-1 {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.heading-2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-dim {
+  color: var(--color-text-dim);
+}
+
+/* ==================== Form Elements ==================== */
+
+/* Input Fields */
+.input-field {
+  width: 100%;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-primary);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  transition: border-color var(--transition-normal);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.input-field::placeholder {
+  color: var(--color-text-dim);
+}
+
+/* Readonly Input (Green Style) */
+.input-readonly {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  cursor: not-allowed;
+  font-weight: 500;
+}
+
+.input-readonly:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+/* Labels */
+label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+/* ==================== Buttons ==================== */
+
+/* Primary Button (Green) */
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-bg-dark);
+  border: none;
+  padding: var(--spacing-lg) var(--spacing-2xl);
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  font-family: var(--font-sans);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  box-shadow: var(--shadow-glow-green);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Secondary Button (Outline) */
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-muted);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  font-size: 0.9rem;
+}
+
+.btn-secondary:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Danger Button */
+.btn-danger {
+  background: transparent;
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-muted);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.btn-danger:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-light);
+}
+
+/* Mini Button (+ button) */
+.btn-mini {
+  background: var(--color-border);
+  border: none;
+  color: var(--color-primary);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-normal);
+}
+
+.btn-mini:hover {
+  background: var(--color-border-light);
+}
+
+/* ==================== Toggle Switch ==================== */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-light);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.toggle-row.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.toggle-row .icon {
+  font-weight: bold;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.toggle-row.active .icon {
+  color: var(--color-primary);
+}
+
+.toggle-switch {
+  margin-left: auto;
+  width: 36px;
+  height: 20px;
+  background: var(--color-border-light);
+  border-radius: 10px;
+  position: relative;
+  transition: background var(--transition-normal);
+}
+
+.toggle-row.active .toggle-switch {
+  background: var(--color-primary);
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: left var(--transition-normal);
+}
+
+.toggle-row.active .toggle-switch::after {
+  left: 18px;
+}
+
+/* ==================== Cards & Containers ==================== */
+.card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+}
+
+.card-header {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+/* ==================== Status Indicators ==================== */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.green {
+  background: var(--color-primary);
+  box-shadow: var(--shadow-glow-sm);
+}
+
+.status-dot.red {
+  background: var(--color-danger);
+  box-shadow: 0 0 5px var(--color-danger);
+}
+
+/* Success/Error Messages */
+.msg-success {
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary-light);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.msg-error {
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  background: var(--color-danger-light);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+}
+
+/* ==================== Utilities ==================== */
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.gap-lg {
+  gap: var(--spacing-lg);
+}
+
+.mb-sm {
+  margin-bottom: var(--spacing-sm);
+}
+
+.mb-md {
+  margin-bottom: var(--spacing-md);
+}
+
+.mb-lg {
+  margin-bottom: var(--spacing-lg);
+}
+
+.mb-xl {
+  margin-bottom: var(--spacing-xl);
+}
+
+/* ==================== Animations ==================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.8s ease;
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ==================== Scrollbar Styling ==================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-lighter);
+}
+
+/* ==================== Responsive Breakpoints ==================== */
+/* Use these in your component styles:
+   @media (max-width: 1400px) { ... }  /* Large screens
+   @media (max-width: 1024px) { ... }  /* Tablets
+   @media (max-width: 768px) { ... }   /* Mobile
+*/
