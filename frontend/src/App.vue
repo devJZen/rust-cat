@@ -9,14 +9,17 @@ import WalletModal from './components/WalletModal.vue';
 import WalletInfo from './components/WalletInfo.vue';
 import Blog from './components/Blog.vue';
 import Leaderboard from './components/Leaderboard.vue';
+import Waitlist from './components/Waitlist.vue';
 
 // --- State ---
 const isAppMode = ref(false);       // 화면 모드 (false: Hero, true: App/ZoomOut)
 const isWalletConnected = ref(false); // 지갑 연결 여부
 const showWalletModal = ref(false);   // 모달 표시 여부
 const isNavOpen = ref(false); // 초기에는 접힌 상태
-const currentView = ref<'create' | 'dashboard' | 'blog' | 'leaderboard'>('dashboard'); // 현재 뷰
+const currentView = ref<'create' | 'dashboard' | 'blog' | 'leaderboard' | 'waitlist'>('dashboard'); // 현재 뷰
 const showWalletInfo = ref(false); // 지갑 정보 모달
+const dashboardKey = ref(0); // 대시보드 재렌더링용 키
+const walletAddress = ref(''); // 연결된 지갑 주소
 
 // --- Event Handlers ---
 
@@ -71,8 +74,10 @@ const connectWallet = async () => {
 
     // @ts-expect-error - Phantom wallet API
     const resp = await window.solana.connect();
-    console.log('Connected to wallet:', resp.publicKey.toString());
+    const publicKey = resp.publicKey.toString();
+    console.log('Connected to wallet:', publicKey);
 
+    walletAddress.value = publicKey;
     isWalletConnected.value = true;
     showWalletModal.value = false;
   } catch (err) {
@@ -82,16 +87,50 @@ const connectWallet = async () => {
 };
 
 // --- Lifecycle ---
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('wheel', handleWheel);
   window.addEventListener('keydown', handleKeydown);
 
-  // 페이지 로드 시 이미 연결된 지갑이 있는지 확인
+  // OAuth 에러 파라미터 처리 (GitHub 인증 거부 등)
+  const urlParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+
+  const error = urlParams.get('error') || hashParams.get('error');
+  const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+
+  if (error) {
+    console.log('OAuth error detected:', error, errorDescription);
+
+    // 에러 메시지 표시
+    if (error === 'access_denied') {
+      console.log('GitHub authentication was cancelled by user');
+    }
+
+    // 강제로 깨끗한 홈으로 리다이렉트 (히스토리에 남기지 않음)
+    // replace는 페이지를 완전히 새로 로드하므로 hash와 query 모두 제거됨
+    window.location.replace('/');
+    return; // 이후 코드 실행 방지
+  }
+
+  // Phantom 지갑 자동 연결 확인 (비동기 처리)
   // @ts-expect-error - Phantom wallet global
-  if (window.solana && window.solana.isConnected) {
-    console.log('Wallet already connected, skipping to dashboard');
-    isWalletConnected.value = true;
-    isAppMode.value = true;
+  if (window.solana) {
+    try {
+      // Phantom이 자동으로 연결을 복원할 때까지 대기
+      // @ts-expect-error - Phantom wallet API
+      const resp = await window.solana.connect({ onlyIfTrusted: true });
+
+      if (resp?.publicKey) {
+        const publicKey = resp.publicKey.toString();
+        console.log('Wallet auto-connected:', publicKey);
+        walletAddress.value = publicKey;
+        isWalletConnected.value = true;
+        isAppMode.value = true;
+      }
+    } catch {
+      // onlyIfTrusted가 false이면 사용자가 명시적으로 연결해야 함
+      console.log('No trusted wallet connection found');
+    }
   }
 });
 
@@ -123,10 +162,19 @@ onUnmounted(() => {
       <!-- 지갑 연결 후 현재 뷰에 따라 표시 -->
       <div v-if="isWalletConnected" class="authenticated-layer">
         <!-- Dashboard, Create Project, Blog, Leaderboard based on currentView -->
-        <ProjectDashboard v-if="currentView === 'dashboard'" @create-project="currentView = 'create'" />
-        <CreateProject v-else-if="currentView === 'create'" @project-created="currentView = 'dashboard'" />
+        <ProjectDashboard
+          v-if="currentView === 'dashboard'"
+          :key="dashboardKey"
+          @create-project="currentView = 'create'"
+        />
+        <CreateProject
+          v-else-if="currentView === 'create'"
+          @project-created="currentView = 'dashboard'; dashboardKey++"
+          @show-waitlist="currentView = 'waitlist'"
+        />
         <Blog v-else-if="currentView === 'blog'" />
         <Leaderboard v-else-if="currentView === 'leaderboard'" />
+        <Waitlist v-else-if="currentView === 'waitlist'" />
       </div>
     </div>
 
@@ -144,11 +192,13 @@ onUnmounted(() => {
       class="side-nav-comp"
       :visible="isWalletConnected"
       :isOpen="isNavOpen"
+      :walletAddress="walletAddress"
       @toggle="isNavOpen = !isNavOpen"
       @show-dashboard="currentView = 'dashboard'"
       @show-wallet-info="showWalletInfo = true"
       @show-blog="currentView = 'blog'"
       @show-leaderboard="currentView = 'leaderboard'"
+      @show-waitlist="currentView = 'waitlist'"
     />
 
     <!-- ★ Wallet Modal ★ -->
@@ -165,7 +215,7 @@ onUnmounted(() => {
       <WalletInfo
         v-if="showWalletInfo"
         @close="showWalletInfo = false"
-        @disconnect="isWalletConnected = false; isAppMode = false; currentView = 'dashboard'; showWalletInfo = false;"
+        @disconnect="isWalletConnected = false; isAppMode = false; currentView = 'dashboard'; showWalletInfo = false; walletAddress = '';"
       />
     </Transition>
 

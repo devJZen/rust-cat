@@ -15,10 +15,12 @@ interface LeaderboardProject {
   category: string;
   country: string;
   countryFlag: string;
+  type: 'project' | 'betting' | 'savings' | 'fundraising';
 }
 
 // --- State ---
 const searchQuery = ref('');
+const selectedType = ref('all'); // 타입 탭
 const selectedCountry = ref('all');
 const selectedCategory = ref('all');
 const sortBy = ref<'balance' | 'progress' | 'recent'>('balance');
@@ -39,7 +41,8 @@ const allProjects = ref<LeaderboardProject[]>([
     members: 12,
     category: 'DeFi',
     country: 'United States',
-    countryFlag: '🇺🇸'
+    countryFlag: '🇺🇸',
+    type: 'project'
   },
   {
     id: '2',
@@ -53,7 +56,8 @@ const allProjects = ref<LeaderboardProject[]>([
     members: 8,
     category: 'NFT',
     country: 'South Korea',
-    countryFlag: '🇰🇷'
+    countryFlag: '🇰🇷',
+    type: 'project'
   },
   {
     id: '3',
@@ -67,35 +71,38 @@ const allProjects = ref<LeaderboardProject[]>([
     members: 15,
     category: 'DAO',
     country: 'Singapore',
-    countryFlag: '🇸🇬'
+    countryFlag: '🇸🇬',
+    type: 'project'
   },
   {
     id: '4',
-    name: 'GameFi Battle Arena',
+    name: 'World Cup Final Bet',
     creator: 'Diana...2p8M',
     pda: '2p8MqR5tY3nE7wF4sX6zL1vK9cH2jU5bG8nM3pT9aQ7',
-    balance: 156.2,
+    balance: 5.2,
     tasksCompleted: 45,
     totalTasks: 100,
     createdAt: Date.now() - 86400000 * 15,
-    members: 20,
+    members: 8,
     category: 'Gaming',
     country: 'Japan',
-    countryFlag: '🇯🇵'
+    countryFlag: '🇯🇵',
+    type: 'betting'
   },
   {
     id: '5',
-    name: 'Social Token Platform',
+    name: 'Team Dinner Fund',
     creator: 'Eve...7k3N',
     pda: '7k3NmP6pR9qT5wE2yF1sX8zV4cH7jU3bG6nM9pT2aQ5',
-    balance: 42.1,
+    balance: 12.3,
     tasksCompleted: 88,
     totalTasks: 100,
     createdAt: Date.now() - 86400000 * 60,
     members: 6,
     category: 'Social',
     country: 'United Kingdom',
-    countryFlag: '🇬🇧'
+    countryFlag: '🇬🇧',
+    type: 'savings'
   },
   {
     id: '6',
@@ -109,49 +116,53 @@ const allProjects = ref<LeaderboardProject[]>([
     members: 10,
     category: 'Infrastructure',
     country: 'Germany',
-    countryFlag: '🇩🇪'
+    countryFlag: '🇩🇪',
+    type: 'project'
   },
   {
     id: '7',
-    name: 'Staking Rewards Optimizer',
+    name: 'Monthly Savings Club',
     creator: 'Grace...8p4L',
     pda: '8p4LmN7pR3qT9wE5yF2sX1zV8cH4jU6bG3nM5pT8aQ2',
-    balance: 91.5,
+    balance: 45.8,
     tasksCompleted: 71,
     totalTasks: 100,
     createdAt: Date.now() - 86400000 * 25,
     members: 9,
     category: 'DeFi',
     country: 'South Korea',
-    countryFlag: '🇰🇷'
+    countryFlag: '🇰🇷',
+    type: 'savings'
   },
   {
     id: '8',
-    name: 'Metaverse Real Estate',
+    name: 'Office Lunch Bet - Who Pays?',
     creator: 'Henry...6k2M',
     pda: '6k2MmP4pR8qT3wE9yF5sX2zV7cH1jU4bG9nM6pT3aQ8',
-    balance: 178.9,
+    balance: 2.1,
     tasksCompleted: 56,
     totalTasks: 100,
     createdAt: Date.now() - 86400000 * 18,
-    members: 14,
+    members: 5,
     category: 'Gaming',
     country: 'United States',
-    countryFlag: '🇺🇸'
+    countryFlag: '🇺🇸',
+    type: 'betting'
   },
   {
     id: '9',
-    name: 'Yield Farming Aggregator',
+    name: 'Community Library Fund',
     creator: 'Ivan...4n7Q',
     pda: '4n7QmP9pR5qT1wE3yF6sX2zV8cH4jU7bG1nM3pT9aQ5',
-    balance: 134.6,
+    balance: 89.4,
     tasksCompleted: 82,
     totalTasks: 100,
     createdAt: Date.now() - 86400000 * 12,
-    members: 11,
+    members: 34,
     category: 'DeFi',
     country: 'Switzerland',
-    countryFlag: '🇨🇭'
+    countryFlag: '🇨🇭',
+    type: 'fundraising'
   },
   {
     id: '10',
@@ -165,21 +176,23 @@ const allProjects = ref<LeaderboardProject[]>([
     members: 16,
     category: 'DeFi',
     country: 'Japan',
-    countryFlag: '🇯🇵'
+    countryFlag: '🇯🇵',
+    type: 'project'
   },
   {
     id: '11',
-    name: 'Community NFT Collection',
+    name: 'Boss Birthday Gift Pool',
     creator: 'Kevin...9m3L',
     pda: '9m3LmP6pR2qT8wE4yF7sX1zV5cH9jU3bG4nM8pT6aQ2',
-    balance: 76.2,
+    balance: 8.5,
     tasksCompleted: 94,
     totalTasks: 100,
     createdAt: Date.now() - 86400000 * 35,
-    members: 7,
+    members: 12,
     category: 'NFT',
     country: 'Canada',
-    countryFlag: '🇨🇦'
+    countryFlag: '🇨🇦',
+    type: 'fundraising'
   },
   {
     id: '12',
@@ -193,9 +206,18 @@ const allProjects = ref<LeaderboardProject[]>([
     members: 13,
     category: 'Social',
     country: 'Singapore',
-    countryFlag: '🇸🇬'
+    countryFlag: '🇸🇬',
+    type: 'project'
   }
 ]);
+
+const projectTypes = [
+  { id: 'all', icon: '🌐', label: 'All Treasuries', description: 'Everything' },
+  { id: 'project', icon: '💼', label: 'Work Projects', description: 'Team milestones & bounties' },
+  { id: 'betting', icon: '🎲', label: 'Betting Pools', description: 'Friendly bets & predictions' },
+  { id: 'savings', icon: '🏦', label: 'Group Savings', description: 'Savings clubs & team funds' },
+  { id: 'fundraising', icon: '💝', label: 'Fundraising', description: 'Gifts & community funds' }
+];
 
 const categories = ['all', 'DeFi', 'NFT', 'DAO', 'Gaming', 'Social', 'Infrastructure'];
 
@@ -214,6 +236,11 @@ const countries = [
 // --- Computed ---
 const filteredProjects = computed(() => {
   let result = allProjects.value;
+
+  // Filter by type (탭)
+  if (selectedType.value !== 'all') {
+    result = result.filter(p => p.type === selectedType.value);
+  }
 
   // Filter by country
   if (selectedCountry.value !== 'all') {
@@ -289,6 +316,16 @@ const getRankEmoji = (index: number) => {
   if (index === 2) return '🥉';
   return `#${index + 1}`;
 };
+
+const getTypeIcon = (type: string) => {
+  const icons = {
+    project: '💼',
+    betting: '🎲',
+    savings: '🏦',
+    fundraising: '💝'
+  };
+  return icons[type as keyof typeof icons] || '💼';
+};
 </script>
 
 <template>
@@ -296,6 +333,30 @@ const getRankEmoji = (index: number) => {
     <div class="leaderboard-header">
       <h1>🏆 Project Leaderboard</h1>
       <p>Discover and explore active Web3 projects on Garden SOL</p>
+    </div>
+
+    <!-- Type Tabs -->
+    <div class="type-tabs-section">
+      <div class="type-tabs">
+        <button
+          v-for="type in projectTypes"
+          :key="type.id"
+          :class="['type-tab-btn', { active: selectedType === type.id }]"
+          @click="selectedType = type.id"
+        >
+          <span class="tab-icon">{{ type.icon }}</span>
+          <div class="tab-content">
+            <span class="tab-label">{{ type.label }}</span>
+            <span class="tab-count">
+              {{
+                type.id === 'all'
+                  ? allProjects.length
+                  : allProjects.filter(p => p.type === type.id).length
+              }}
+            </span>
+          </div>
+        </button>
+      </div>
     </div>
 
     <!-- Filters & Search -->
@@ -397,7 +458,10 @@ const getRankEmoji = (index: number) => {
 
         <div class="col-project">
           <div class="project-info">
-            <div class="project-name">{{ project.name }}</div>
+            <div class="project-name">
+              <span class="type-icon-small">{{ getTypeIcon(project.type) }}</span>
+              {{ project.name }}
+            </div>
             <div class="project-category">{{ project.category }}</div>
           </div>
         </div>
@@ -488,6 +552,86 @@ const getRankEmoji = (index: number) => {
 .leaderboard-header p {
   color: #888;
   font-size: 1rem;
+}
+
+/* Type Tabs */
+.type-tabs-section {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #222;
+}
+
+.type-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.type-tab-btn {
+  background: #0a0a0a;
+  border: 2px solid #222;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.type-tab-btn:hover {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.05);
+  transform: translateY(-2px);
+}
+
+.type-tab-btn.active {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.2);
+}
+
+.tab-icon {
+  font-size: 2.5rem;
+  display: block;
+  transition: transform 0.3s;
+}
+
+.type-tab-btn:hover .tab-icon,
+.type-tab-btn.active .tab-icon {
+  transform: scale(1.1);
+}
+
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.tab-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ccc;
+  transition: color 0.3s;
+}
+
+.type-tab-btn.active .tab-label {
+  color: #4ade80;
+}
+
+.tab-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #888;
+  font-family: monospace;
+  transition: color 0.3s;
+}
+
+.type-tab-btn.active .tab-count {
+  color: #4ade80;
 }
 
 /* Controls */
@@ -687,6 +831,14 @@ const getRankEmoji = (index: number) => {
   font-weight: 600;
   color: white;
   font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.type-icon-small {
+  font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
 .project-category {
@@ -824,6 +976,22 @@ const getRankEmoji = (index: number) => {
     padding-right: 110px;
   }
 
+  .type-tabs {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .tab-icon {
+    font-size: 2rem;
+  }
+
+  .tab-label {
+    font-size: 0.85rem;
+  }
+
+  .tab-count {
+    font-size: 1.3rem;
+  }
+
   .stats-overview {
     grid-template-columns: 1fr;
   }
@@ -854,6 +1022,26 @@ const getRankEmoji = (index: number) => {
 
   .leaderboard-header h1 {
     font-size: 2rem;
+  }
+
+  .type-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .type-tab-btn {
+    padding: 12px;
+  }
+
+  .tab-icon {
+    font-size: 1.8rem;
+  }
+
+  .tab-label {
+    font-size: 0.75rem;
+  }
+
+  .tab-count {
+    font-size: 1.1rem;
   }
 
   .category-tabs {

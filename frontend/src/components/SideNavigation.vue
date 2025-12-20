@@ -1,38 +1,28 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed } from 'vue';
 
-defineProps<{
+const props = defineProps<{
   visible: boolean,
-  isOpen: boolean
+  isOpen: boolean,
+  walletAddress: string
 }>();
-const emit = defineEmits(['toggle', 'show-dashboard', 'show-wallet-info', 'show-blog', 'show-leaderboard']);
 
-// --- State ---
-const walletAddress = ref('');
-const avatarText = ref('--');
+const emit = defineEmits(['toggle', 'show-dashboard', 'show-wallet-info', 'show-blog', 'show-leaderboard', 'show-waitlist']);
 
-// --- Methods ---
-const fetchWalletAddress = async () => {
-  try {
-    // @ts-expect-error - Phantom wallet global
-    if (window.solana && window.solana.publicKey) {
-      // @ts-expect-error - Phantom wallet API
-      walletAddress.value = window.solana.publicKey.toString();
-      // 첫 2자리만 사용 (펌프펀 스타일)
-      avatarText.value = walletAddress.value.slice(0, 2).toUpperCase();
-    }
-  } catch (err) {
-    console.error('Failed to get wallet address:', err);
-  }
-};
+// --- Computed ---
+const avatarText = computed(() => {
+  if (!props.walletAddress) return '--';
+  return props.walletAddress.slice(0, 2).toUpperCase();
+});
 
 const menuItems = [
   { icon: '⊞', label: 'Dashboard', action: 'dashboard' },
-  { icon: '⚡️', label: 'Milestones', action: 'milestones' },
+  // { icon: '⚡️', label: 'Milestones', action: 'milestones' },
   { icon: '🏆', label: 'Leaderboard', action: 'leaderboard' },
-  { icon: '◎', label: 'Wallet', action: 'wallet' },
+  // { icon: '◎', label: 'Wallet', action: 'wallet' },
   { icon: '📝', label: 'Blog', action: 'blog' },
-  { icon: '⚙', label: 'Settings', action: 'settings' },
+  // { icon: '🌱', label: 'Waitlist', action: 'waitlist' },
+  // { icon: '⚙', label: 'Settings', action: 'settings' },
 ];
 
 const handleMenuClick = (action: string) => {
@@ -44,13 +34,11 @@ const handleMenuClick = (action: string) => {
     emit('show-blog');
   } else if (action === 'leaderboard') {
     emit('show-leaderboard');
+  } else if (action === 'waitlist') {
+    emit('show-waitlist');
   }
   // TODO: Add handlers for milestones and settings
 };
-
-onMounted(() => {
-  fetchWalletAddress();
-});
 </script>
 
 <template>
@@ -69,10 +57,10 @@ onMounted(() => {
       :class="{ 'collapsed': !isOpen }"
       @click="!isOpen && emit('toggle')"
     >
-      <div class="top-section" @click.stop="isOpen ? emit('toggle') : emit('show-wallet-info')">
+      <div class="top-section" @click.stop="emit('show-wallet-info')">
         <div class="user-profile">
           <div class="avatar" :class="{ 'clickable': !isOpen }">{{ avatarText }}</div>
-          <div class="user-info" v-if="isOpen">
+          <div class="user-info" v-if="isOpen && walletAddress">
             <div class="name">{{ walletAddress.slice(0, 16) }}...</div>
             <div class="role">{{ walletAddress.slice(-8) }}</div>
           </div>

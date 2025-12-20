@@ -4,6 +4,11 @@ target
 **/*.rs.bk
 test-ledger
 
+# Supabase
+supabase-schema.sql
+supabase-update-policies.sql
+supabase-add-payment-tx.sql
+
 # Node
 node_modules
 .yarn
@@ -50,3 +55,4 @@ test-ledger/
 
 # Project-specific
 TODO.md
+SUPABASE_GITHUB_AUTH.md

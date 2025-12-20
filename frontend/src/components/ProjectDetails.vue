@@ -10,6 +10,7 @@ interface Project {
   tasksCompleted: number;
   totalTasks: number;
   createdAt: number;
+  payment_tx?: string; // 0.1 SOL 결제 트랜잭션 해시
 }
 
 // --- Props & Emits ---
@@ -31,6 +32,11 @@ const progressPercent = computed(() => {
 
 const explorerUrl = computed(() => {
   return `https://explorer.solana.com/address/${props.project.pda}?cluster=devnet`;
+});
+
+const paymentExplorerUrl = computed(() => {
+  if (!props.project.payment_tx) return '';
+  return `https://explorer.solana.com/tx/${props.project.payment_tx}?cluster=devnet`;
 });
 
 const formatDate = (timestamp: number) => {
@@ -132,6 +138,29 @@ onMounted(() => {
 
           <a :href="explorerUrl" target="_blank" class="btn-explorer">
             🔍 View on Solana Explorer →
+          </a>
+        </div>
+
+        <!-- Payment Transaction Section -->
+        <div v-if="project.payment_tx" class="info-card payment-card">
+          <div class="card-header">
+            <h3>💳 Creation Payment</h3>
+            <span class="badge badge-success">Confirmed</span>
+          </div>
+
+          <div class="payment-info">
+            <div class="info-row">
+              <span class="label">Amount Paid:</span>
+              <span class="value balance">0.1 SOL</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Transaction:</span>
+              <code class="tx-hash">{{ shortAddress(project.payment_tx) }}</code>
+            </div>
+          </div>
+
+          <a :href="paymentExplorerUrl" target="_blank" class="btn-explorer btn-explorer-payment">
+            🔍 View Payment Transaction →
           </a>
         </div>
 
@@ -354,6 +383,43 @@ onMounted(() => {
 .pda-card {
   background: rgba(74, 222, 128, 0.03);
   border-color: rgba(74, 222, 128, 0.2);
+}
+
+/* Payment Card */
+.payment-card {
+  background: rgba(74, 222, 128, 0.02);
+  border-color: rgba(74, 222, 128, 0.15);
+}
+
+.payment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tx-hash {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #4ade80;
+  background: #0a0a0a;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #222;
+}
+
+.badge-success {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+.btn-explorer-payment {
+  border-color: rgba(74, 222, 128, 0.25);
+}
+
+.btn-explorer-payment:hover {
+  background: rgba(74, 222, 128, 0.08);
 }
 
 .pda-address {

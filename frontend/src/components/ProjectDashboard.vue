@@ -1,29 +1,53 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import ProjectDetails from './ProjectDetails.vue';
+import { useSupabase, type Project as SupabaseProject } from '../composables/useSupabase';
 
 interface Project {
   id: string;
   name: string;
-  pda: string; // Project wallet address
+  type: 'project' | 'betting' | 'savings' | 'fundraising';
+  pda?: string; // Project wallet address
   balance: number; // SOL balance
-  tasksCompleted: number;
-  totalTasks: number;
-  createdAt: number;
+  deadline?: string;
+  payment_tx?: string; // 0.1 SOL payment transaction hash
+  creator_wallet: string;
+  created_at?: string;
+  createdAt?: number; // for compatibility
+  tasksCompleted?: number;
+  totalTasks?: number;
 }
 
 // --- State ---
 const projects = ref<Project[]>([]);
 const loading = ref(true);
-const selectedProject = ref<Project | null>(null);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const selectedProject = ref<any>(null); // ProjectDetails의 다른 인터페이스 사용
 const showDetailsModal = ref(false);
+const showDeleteConfirm = ref(false);
+const projectToDelete = ref<Project | null>(null);
+const connectedWallet = ref('');
 
 // --- Emits ---
 const emit = defineEmits(['create-project']);
 
+// --- Composables ---
+const { getMyProjects, deleteProject: deleteProjectSupabase } = useSupabase();
+
 // --- Methods ---
 const viewProjectDetails = (project: Project) => {
-  selectedProject.value = project;
+  // ProjectDetails 컴포넌트의 인터페이스에 맞게 변환
+  const detailsProject = {
+    id: project.id,
+    name: project.name,
+    pda: project.pda || 'Not deployed',
+    balance: project.balance,
+    tasksCompleted: project.tasksCompleted || 0,
+    totalTasks: project.totalTasks || 100,
+    createdAt: project.created_at ? new Date(project.created_at).getTime() : Date.now(),
+    payment_tx: project.payment_tx // 결제 트랜잭션 해시 전달
+  };
+  selectedProject.value = detailsProject;
   showDetailsModal.value = true;
 };
 
@@ -32,27 +56,87 @@ const closeDetailsModal = () => {
   selectedProject.value = null;
 };
 
+const confirmDelete = (project: Project) => {
+  projectToDelete.value = project;
+  showDeleteConfirm.value = true;
+};
+
+const cancelDelete = () => {
+  showDeleteConfirm.value = false;
+  projectToDelete.value = null;
+};
+
+const deleteProject = async () => {
+  if (!projectToDelete.value) return;
+
+  const projectName = projectToDelete.value.name;
+  const projectId = projectToDelete.value.id;
+
+  try {
+    console.log('Deleting project:', projectId);
+
+    // Supabase에서 삭제
+    const { error } = await deleteProjectSupabase(projectId);
+
+    if (error) {
+      console.error('Failed to delete project:', error);
+      alert(`Failed to delete project: ${error.message}\n\nPlease check:\n1. Supabase connection (.env file)\n2. RLS policies (run supabase-update-policies.sql)`);
+      return;
+    }
+
+    // 로컬 상태에서도 제거
+    projects.value = projects.value.filter(p => p.id !== projectId);
+
+    console.log('✓ Project deleted successfully:', projectName);
+
+    // 성공 메시지 (선택사항)
+    // alert(`Project "${projectName}" deleted successfully`);
+  } catch (err) {
+    console.error('Failed to delete project:', err);
+    alert('Failed to delete project. Please check console for details.');
+  } finally {
+    showDeleteConfirm.value = false;
+    projectToDelete.value = null;
+  }
+};
+
 // --- Methods ---
 const fetchProjects = async () => {
+  if (!connectedWallet.value) {
+    loading.value = false;
+    return;
+  }
+
   loading.value = true;
   try {
-    // TODO: 실제로는 Solana에서 프로젝트 목록을 가져와야 함
-    // 지금은 더미 데이터
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Supabase에서 내 프로젝트 가져오기
+    const { data, error } = await getMyProjects(connectedWallet.value);
 
-    projects.value = [
-      {
-        id: '1',
-        name: 'Protocol V2 Launch',
-        pda: 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS',
-        balance: 2.45,
-        tasksCompleted: 42,
-        totalTasks: 100,
-        createdAt: Date.now() - 86400000 * 7
-      }
-    ];
+    if (error) {
+      console.error('Failed to fetch projects:', error);
+      projects.value = [];
+      return;
+    }
+
+    // Supabase 데이터를 Project 형식으로 변환
+    projects.value = (data || []).map((p: SupabaseProject) => ({
+      id: p.id || '',
+      name: p.name,
+      type: p.type,
+      pda: p.pda || 'Not yet deployed',
+      balance: p.balance || 0,
+      deadline: p.deadline,
+      payment_tx: p.payment_tx, // 결제 트랜잭션 해시
+      creator_wallet: p.creator_wallet,
+      created_at: p.created_at,
+      tasksCompleted: 0, // TODO: 나중에 task tracking 추가
+      totalTasks: 100
+    }));
+
+    console.log('Fetched projects:', projects.value);
   } catch (err) {
     console.error('Failed to fetch projects:', err);
+    projects.value = [];
   } finally {
     loading.value = false;
   }
@@ -62,8 +146,9 @@ const formatBalance = (balance: number) => {
   return balance.toFixed(2) + ' SOL';
 };
 
-const formatDate = (timestamp: number) => {
-  const date = new Date(timestamp);
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Unknown';
+  const date = new Date(dateString);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
@@ -71,8 +156,30 @@ const getProgressPercent = (completed: number, total: number) => {
   return Math.round((completed / total) * 100);
 };
 
-onMounted(() => {
-  fetchProjects();
+const getTypeIcon = (type: string) => {
+  const icons = {
+    project: '💼',
+    betting: '🎲',
+    savings: '🏦',
+    fundraising: '💝'
+  };
+  return icons[type as keyof typeof icons] || '💼';
+};
+
+onMounted(async () => {
+  try {
+    // @ts-expect-error - Phantom wallet global
+    if (window.solana && window.solana.isConnected) {
+      // @ts-expect-error - Phantom wallet API
+      const publicKey = window.solana.publicKey;
+      if (publicKey) {
+        connectedWallet.value = publicKey.toString();
+        await fetchProjects();
+      }
+    }
+  } catch (err) {
+    console.error('Failed to get wallet address:', err);
+  }
 });
 </script>
 
@@ -109,8 +216,16 @@ onMounted(() => {
       >
         <!-- Card Header -->
         <div class="card-header">
-          <h3>{{ project.name }}</h3>
-          <span class="project-id">{{ project.pda.slice(0, 8) }}...</span>
+          <div class="header-content">
+            <h3>
+              <span class="type-icon-badge">{{ getTypeIcon(project.type) }}</span>
+              {{ project.name }}
+            </h3>
+            <span class="project-id">{{ project.pda.slice(0, 8) }}...</span>
+          </div>
+          <button class="btn-delete-small" @click.stop="confirmDelete(project)" title="Delete project">
+            🗑️
+          </button>
         </div>
 
         <!-- Balance -->
@@ -135,7 +250,7 @@ onMounted(() => {
 
         <!-- Footer -->
         <div class="card-footer">
-          <span class="created-date">Created {{ formatDate(project.createdAt) }}</span>
+          <span class="created-date">Created {{ formatDate(project.created_at) }}</span>
           <button class="btn-view" @click="viewProjectDetails(project)">View Details →</button>
         </div>
       </div>
@@ -157,6 +272,31 @@ onMounted(() => {
         :project="selectedProject"
         @close="closeDetailsModal"
       />
+    </Transition>
+
+    <!-- Delete Confirmation Modal -->
+    <Transition name="fade">
+      <div v-if="showDeleteConfirm" class="delete-modal-overlay" @click.self="cancelDelete">
+        <div class="delete-modal">
+          <div class="modal-icon">⚠️</div>
+          <h2>Delete Project?</h2>
+          <p class="warning-text">
+            Are you sure you want to delete <strong>{{ projectToDelete?.name }}</strong>?
+          </p>
+          <p class="info-text">
+            This will remove the project from your dashboard. The on-chain PDA wallet will remain on the blockchain, but you'll lose access to manage it through this interface.
+          </p>
+
+          <div class="modal-actions">
+            <button class="btn-cancel" @click="cancelDelete">
+              Cancel
+            </button>
+            <button class="btn-confirm-delete" @click="deleteProject">
+              Delete Project
+            </button>
+          </div>
+        </div>
+      </div>
     </Transition>
   </div>
 </template>
@@ -300,10 +440,28 @@ onMounted(() => {
 }
 
 /* Card Header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-content {
+  flex: 1;
+}
+
 .card-header h3 {
   font-size: 1.3rem;
   margin-bottom: 8px;
   color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.type-icon-badge {
+  font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .project-id {
@@ -313,6 +471,29 @@ onMounted(() => {
   background: #111;
   padding: 4px 8px;
   border-radius: 4px;
+}
+
+.btn-delete-small {
+  background: transparent;
+  border: 1px solid #333;
+  color: #666;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-delete-small:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
 }
 
 /* Balance Section */
@@ -479,6 +660,125 @@ onMounted(() => {
 
   .dashboard-header h1 {
     font-size: 2rem;
+  }
+}
+
+/* Delete Confirmation Modal */
+.delete-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 20px;
+}
+
+.delete-modal {
+  background: #0a0a0a;
+  border: 1px solid #ef4444;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  animation: slideUp 0.3s ease;
+}
+
+.modal-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+}
+
+.delete-modal h2 {
+  font-size: 1.8rem;
+  color: white;
+  margin: 0 0 16px 0;
+}
+
+.warning-text {
+  color: #ef4444;
+  font-size: 1rem;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.warning-text strong {
+  color: white;
+  font-weight: 600;
+}
+
+.info-text {
+  color: #888;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.btn-cancel,
+.btn-confirm-delete {
+  padding: 14px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-cancel {
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+}
+
+.btn-cancel:hover {
+  border-color: #4ade80;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.05);
+}
+
+.btn-confirm-delete {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-confirm-delete:hover {
+  background: #dc2626;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile: Single column layout for modal actions */
+@media (max-width: 600px) {
+  .modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .delete-modal {
+    padding: 24px;
+  }
+
+  .delete-modal h2 {
+    font-size: 1.5rem;
   }
 }
 
