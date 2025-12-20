@@ -107,7 +107,7 @@ export function useAnchorProject() {
 
       // 5. 트랜잭션 전송
       const tx = await program.methods
-        .initializeProject(name, admins, members)
+        .initializeProject!(name, admins, members)
         .accounts({
           projectAccount: projectPda,
           authority: provider.wallet.publicKey,

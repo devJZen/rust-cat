@@ -1,5 +1,12 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { Buffer } from 'buffer'
+
+// Polyfill Buffer for browser
+if (!window.Buffer) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).Buffer = Buffer;
+}
 
 import App from './App.vue'
 import router from './router'
