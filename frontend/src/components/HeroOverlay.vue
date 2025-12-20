@@ -6,7 +6,7 @@ defineEmits(['enter']);
   <div class="hero-content">
     <div class="brand-area">
       <div class="green-dot"></div>
-      <span class="brand-name">BlockSprint</span>
+      <span class="brand-name">Garden SOL</span>
     </div>
 
     <h1 class="headline">
