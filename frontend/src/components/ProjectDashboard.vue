@@ -221,7 +221,7 @@ onMounted(async () => {
               <span class="type-icon-badge">{{ getTypeIcon(project.type) }}</span>
               {{ project.name }}
             </h3>
-            <span class="project-id">{{ project.pda.slice(0, 8) }}...</span>
+            <span class="project-id">{{ (project.pda || 'Not deployed').slice(0, 8) }}...</span>
           </div>
           <button class="btn-delete-small" @click.stop="confirmDelete(project)" title="Delete project">
             🗑️
@@ -238,12 +238,12 @@ onMounted(async () => {
         <div class="progress-section">
           <div class="progress-header">
             <span>Progress</span>
-            <span class="progress-text">{{ project.tasksCompleted }}/{{ project.totalTasks }} tasks</span>
+            <span class="progress-text">{{ project.tasksCompleted || 0 }}/{{ project.totalTasks || 100 }} tasks</span>
           </div>
           <div class="progress-bar">
             <div
               class="progress-fill"
-              :style="{ width: getProgressPercent(project.tasksCompleted, project.totalTasks) + '%' }"
+              :style="{ width: getProgressPercent(project.tasksCompleted || 0, project.totalTasks || 100) + '%' }"
             ></div>
           </div>
         </div>
