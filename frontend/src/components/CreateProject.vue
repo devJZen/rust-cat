@@ -147,9 +147,10 @@ const toggleGithubConnection = async () => {
   }
 };
 
-// 0.1 SOL 결제 함수
+// 0.1 SOL 결제 함수 (보안 강화)
 const pay01SOL = async (): Promise<string> => {
   try {
+    // 1. 지갑 연결 확인
     // @ts-expect-error - Phantom wallet global
     if (!window.solana || !window.solana.isConnected) {
       throw new Error('Wallet not connected');
@@ -158,18 +159,24 @@ const pay01SOL = async (): Promise<string> => {
     // @ts-expect-error - Phantom wallet API
     const provider = window.solana;
     const fromPubkey = new PublicKey(connectedWallet.value);
-
-    // 임시 수신 주소 (나중에 프로젝트 treasury 주소로 변경)
-    // 현재는 creator 본인 지갑으로 전송 (테스트용)
-    const toPubkey = fromPubkey;
-
-    // Solana devnet 연결
     const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
 
-    // 0.1 SOL = 100,000,000 lamports
+    // 2. 잔액 확인 (NEW)
+    const balance = await connection.getBalance(fromPubkey);
+    const requiredLamports = 0.1 * LAMPORTS_PER_SOL + 5000; // + 예상 수수료
+
+    if (balance < requiredLamports) {
+      const balanceSOL = (balance / LAMPORTS_PER_SOL).toFixed(4);
+      throw new Error(
+        `Insufficient balance: ${balanceSOL} SOL. Need at least 0.1005 SOL. Get devnet SOL from https://faucet.solana.com`
+      );
+    }
+
+    // 3. 트랜잭션 생성
+    // 임시: 본인에게 전송 (추후 Treasury PDA로 변경 예정)
+    const toPubkey = fromPubkey;
     const lamports = 0.1 * LAMPORTS_PER_SOL;
 
-    // 트랜잭션 생성
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey,
@@ -178,22 +185,54 @@ const pay01SOL = async (): Promise<string> => {
       })
     );
 
-    // 최근 블록해시 가져오기
-    const { blockhash } = await connection.getLatestBlockhash();
+    // 4. 최근 블록해시 가져오기 (lastValidBlockHeight 추가)
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = fromPubkey;
 
-    // Phantom으로 서명 및 전송
+    // 5. Phantom으로 서명 및 전송
     const signed = await provider.signAndSendTransaction(transaction);
-    console.log('Payment transaction:', signed.signature);
+    const signature = signed.signature;
 
-    // 트랜잭션 확인 대기
-    await connection.confirmTransaction(signed.signature);
+    if (!signature) {
+      throw new Error('Transaction signing failed: no signature returned');
+    }
 
-    return signed.signature;
+    console.log('Payment transaction sent:', signature);
+
+    // 6. 트랜잭션 확인 대기 (timeout 추가)
+    await Promise.race([
+      connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight
+      }, 'confirmed'),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Transaction confirmation timeout after 60s')), 60000)
+      )
+    ]);
+
+    console.log('Payment confirmed:', signature);
+    return signature;
+
   } catch (err) {
     console.error('Payment failed:', err);
-    throw new Error(err instanceof Error ? err.message : 'Payment failed');
+
+    // 7. 향상된 에러 처리
+    if (err instanceof Error) {
+      if (err.message.includes('User rejected') || err.message.includes('cancelled')) {
+        throw new Error('Payment cancelled by user');
+      }
+      if (err.message.includes('timeout')) {
+        throw new Error('Transaction confirmation timeout. Please check Solana Explorer to verify.');
+      }
+      if (err.message.includes('Insufficient')) {
+        throw err; // 잔액 부족 메시지 그대로 전달
+      }
+      throw new Error(`Payment failed: ${err.message}`);
+    }
+
+    throw new Error('Payment failed with unknown error');
   }
 };
 

@@ -4,7 +4,7 @@ import { Connection, PublicKey, SystemProgram, clusterApiUrl } from '@solana/web
 import * as anchor from '@coral-xyz/anchor';
 
 // Mock 모드 (프로그램이 배포되지 않았을 때)
-const MOCK_MODE = true; // 실제 배포 후 false로 변경
+const MOCK_MODE = false; // 실제 배포된 프로그램 사용
 
 // 가상의 IDL (Smart Contract 인터페이스 정의)
 // 실제 프로젝트에서는 target/types/your_program.ts 에서 가져와야 함
@@ -130,5 +130,126 @@ export function useAnchorProject() {
     }
   };
 
-  return { createProjectOnChain, loading, txHash, error };
+  const fundTreasury = async (
+    projectPda: string,
+    amount: number // in SOL
+  ): Promise<string> => {
+    loading.value = true;
+    error.value = '';
+
+    try {
+      // @ts-expect-error - Phantom wallet global
+      if (!window.solana || !window.solana.isConnected) {
+        throw new Error("Wallet not connected");
+      }
+
+      // @ts-expect-error - Phantom wallet API
+      const phantomWallet = window.solana;
+      const wallet = {
+        publicKey: phantomWallet.publicKey,
+        signTransaction: phantomWallet.signTransaction.bind(phantomWallet),
+        signAllTransactions: phantomWallet.signAllTransactions.bind(phantomWallet),
+      };
+
+      const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+      const provider = new anchor.AnchorProvider(
+        connection,
+        wallet as anchor.Wallet,
+        { commitment: "confirmed" }
+      );
+
+      const program = new anchor.Program(IDL as unknown as anchor.Idl, provider);
+
+      const projectPubkey = new PublicKey(projectPda);
+      const lamports = new anchor.BN(amount * 1000000000); // SOL to lamports
+
+      const tx = await program.methods
+        // @ts-expect-error - IDL types
+        .fundTreasury(lamports)
+        .accounts({
+          project: projectPubkey,
+          funder: provider.wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      console.log("Treasury funded! Transaction:", tx);
+      txHash.value = tx;
+      return tx;
+
+    } catch (err) {
+      console.error("Error funding treasury:", err);
+      error.value = err instanceof Error ? err.message : 'Unknown error';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const withdrawFunds = async (
+    projectPda: string,
+    amount: number, // in SOL
+    recipientAddress: string
+  ): Promise<string> => {
+    loading.value = true;
+    error.value = '';
+
+    try {
+      // @ts-expect-error - Phantom wallet global
+      if (!window.solana || !window.solana.isConnected) {
+        throw new Error("Wallet not connected");
+      }
+
+      // @ts-expect-error - Phantom wallet API
+      const phantomWallet = window.solana;
+      const wallet = {
+        publicKey: phantomWallet.publicKey,
+        signTransaction: phantomWallet.signTransaction.bind(phantomWallet),
+        signAllTransactions: phantomWallet.signAllTransactions.bind(phantomWallet),
+      };
+
+      const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+      const provider = new anchor.AnchorProvider(
+        connection,
+        wallet as anchor.Wallet,
+        { commitment: "confirmed" }
+      );
+
+      const program = new anchor.Program(IDL as unknown as anchor.Idl, provider);
+
+      const projectPubkey = new PublicKey(projectPda);
+      const recipient = new PublicKey(recipientAddress);
+      const lamports = new anchor.BN(amount * 1000000000); // SOL to lamports
+
+      const tx = await program.methods
+        // @ts-expect-error - IDL types
+        .withdrawFunds(lamports)
+        .accounts({
+          project: projectPubkey,
+          authority: provider.wallet.publicKey,
+          recipient: recipient,
+        })
+        .rpc();
+
+      console.log("Funds withdrawn! Transaction:", tx);
+      txHash.value = tx;
+      return tx;
+
+    } catch (err) {
+      console.error("Error withdrawing funds:", err);
+      error.value = err instanceof Error ? err.message : 'Unknown error';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  return {
+    createProjectOnChain,
+    fundTreasury,
+    withdrawFunds,
+    loading,
+    txHash,
+    error
+  };
 }
