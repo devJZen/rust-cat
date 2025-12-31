@@ -4,6 +4,8 @@ Here is a comprehensive `README.md` file tailored to the project we have built t
 
 **Garden SOL** is a Web3-native **habit-forming platform** that transforms team goals into on-chain commitments. It leverages financial incentives to reinforce positive behaviors, visualizing progress through pixel art grids.
 
+> **Origin Story:** This project was born from discovering that GitHub contribution graphs can be manipulated through commit date spoofing. We realized that genuine accountability requires immutable, on-chain verification - something GitHub's centralized system cannot provide. Garden SOL solves this by anchoring habit tracking to the Solana blockchain, where timestamps are cryptographically guaranteed and cannot be retroactively modified.
+
 # Demo video
 
 Add here
@@ -20,6 +22,15 @@ Add here
 * **On-Chain Accountability:**
   * **Dedicated Vaults (PDA):** Automatically generates a secure vault for each habit/project using Anchor.
   * **Budget as a Goal:** Users define a **"Target Pledge"** when starting, setting a clear financial scale for their commitment.
+* **Treasury Management:**
+  * **Fund Treasury:** Anyone can contribute SOL to support a project's goals
+  * **Secure Withdrawals:** Only project admins can withdraw funds, with on-chain authorization checks
+  * **Balance Tracking:** Real-time treasury balance stored on-chain for full transparency
+* **Enterprise-Grade Security:**
+  * **Input Validation:** 6+ validation checks prevent malformed data (empty names, oversized arrays, duplicate addresses)
+  * **Role-Based Access Control (RBAC):** Admin-only operations enforced on-chain
+  * **Protected Accounts:** Creator must be in admin list, preventing lock-out scenarios
+  * **Comprehensive Testing:** 15 security tests covering all attack vectors
 
 # 🎨 Design & Inspiration
 
@@ -55,14 +66,17 @@ Garden SOL uses a **hybrid architecture** that combines the security of blockcha
 
 ```rust
 pub struct Project {
-    pub name: String,              // Project name
+    pub name: String,              // Project name (max 50 chars)
     pub creator: Pubkey,            // Project creator wallet
-    pub admins: Vec<Pubkey>,        // Admin wallets
-    pub members: Vec<Pubkey>,       // Member wallets
+    pub admins: Vec<Pubkey>,        // Admin wallets (max 10)
+    pub members: Vec<Pubkey>,       // Member wallets (max 50)
+    pub github_enabled: bool,       // GitHub integration status
+    pub jira_enabled: bool,         // Jira integration status
     pub created_at: i64,            // Creation timestamp
     pub tasks_completed: u8,        // Completed tasks (0-100)
     pub total_tasks: u8,            // Total tasks (100)
-    pub pixel_dna_seed: String,     // Seed for regenerating pixel pattern
+    pub treasury_balance: u64,      // Treasury balance in lamports
+    pub bump: u8,                   // PDA bump seed
 }
 ```
 
