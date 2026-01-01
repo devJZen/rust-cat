@@ -153,6 +153,30 @@ Project wallets are deterministically derived using:
 
 This ensures each user can create multiple projects with unique names.
 
+## 📖 Blog & Articles
+
+**[The GitHub Commit Date Manipulation Project: Why We Built Garden SOL](./BLOG-ORIGIN-STORY.md)**
+
+A deep dive into the discovery that sparked this project - how GitHub's contribution graphs can be completely fabricated through Git's timestamp manipulation, and why blockchain provides the only trustworthy solution for accountability systems. Covers the technical vulnerability, implications for hiring and open source, and Garden SOL's cryptographic approach to proving consistency.
+
+**Reading Time:** 5 minutes
+**Topics:** Blockchain, GitHub Security, Accountability, Solana, Web3
+
+## 📚 Documentation
+
+### Quick Reference
+- **[QUICKSTART.md](./QUICKSTART.md)** - Get started quickly with prioritized TODO list and next steps
+- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Detailed technical implementation of security features and Treasury system
+
+### Database & Deployment
+- **[supabase-schema.sql](./supabase-schema.sql)** - Database schema and Row Level Security policies
+- **[supabase-update-policies.sql](./supabase-update-policies.sql)** - Security policy updates (addresses "policy already exists" errors)
+
+### Deployed Program
+- **Program ID:** `FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW`
+- **Network:** Solana Devnet
+- **Explorer:** [View on Solana Explorer](https://explorer.solana.com/address/FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW?cluster=devnet)
+
 ## ⚖️ Credits & Licenses
 
 * **Design Inspiration:**
