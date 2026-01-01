@@ -5,6 +5,8 @@ Here is a comprehensive `README.md` file tailored to the project we have built t
 **Garden SOL** is a Web3-native **habit-forming platform** that transforms team goals into on-chain commitments. It leverages financial incentives to reinforce positive behaviors, visualizing progress through pixel art grids.
 
 > **Origin Story:** This project was born from discovering that GitHub contribution graphs can be manipulated through commit date spoofing. We realized that genuine accountability requires immutable, on-chain verification - something GitHub's centralized system cannot provide. Garden SOL solves this by anchoring habit tracking to the Solana blockchain, where timestamps are cryptographically guaranteed and cannot be retroactively modified.
+>
+> [https://github.com/devJZen/git-log-hack](repository)
 
 # Demo video
 
@@ -165,14 +167,17 @@ A deep dive into the discovery that sparked this project - how GitHub's contribu
 ## 📚 Documentation
 
 ### Quick Reference
+
 - **[QUICKSTART.md](./QUICKSTART.md)** - Get started quickly with prioritized TODO list and next steps
 - **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Detailed technical implementation of security features and Treasury system
 
 ### Database & Deployment
+
 - **[supabase-schema.sql](./supabase-schema.sql)** - Database schema and Row Level Security policies
 - **[supabase-update-policies.sql](./supabase-update-policies.sql)** - Security policy updates (addresses "policy already exists" errors)
 
 ### Deployed Program
+
 - **Program ID:** `FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW`
 - **Network:** Solana Devnet
 - **Explorer:** [View on Solana Explorer](https://explorer.solana.com/address/FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW?cluster=devnet)
