@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { useAnchorProject } from '../composables/useAnchorProject';
 
 interface Project {
   id: string;
@@ -20,10 +21,30 @@ const props = defineProps<{
 
 const emit = defineEmits(['close']);
 
+// --- Composables ---
+const { fundTreasury } = useAnchorProject();
+
 // --- State ---
 const loading = ref(true);
 const pdaBalance = ref(0);
 const onChainData = ref<any>(null);
+
+// Fund Treasury Modal
+const showFundModal = ref(false);
+const fundAmount = ref('');
+const fundingInProgress = ref(false);
+const fundError = ref('');
+
+// Funding History
+interface FundingTransaction {
+  signature: string;
+  amount: number;
+  sender: string;
+  timestamp: number;
+}
+
+const fundingHistory = ref<FundingTransaction[]>([]);
+const loadingHistory = ref(false);
 
 // --- Computed ---
 const progressPercent = computed(() => {
@@ -49,6 +70,16 @@ const formatDate = (timestamp: number) => {
   });
 };
 
+const formatTimestamp = (timestamp: number) => {
+  const now = Date.now() / 1000; // Convert to seconds
+  const diff = now - timestamp;
+
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+};
+
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text);
   alert('Copied to clipboard!');
@@ -62,8 +93,23 @@ const shortAddress = (addr: string) => {
 const fetchPDABalance = async () => {
   loading.value = true;
   try {
+    // PDA 주소 검증
+    if (!props.project.pda || props.project.pda.length < 32) {
+      console.warn('Invalid or missing PDA address');
+      pdaBalance.value = 0;
+      return;
+    }
+
+    let pubkey: PublicKey;
+    try {
+      pubkey = new PublicKey(props.project.pda);
+    } catch (err) {
+      console.error('Invalid PDA address format:', props.project.pda);
+      pdaBalance.value = 0;
+      return;
+    }
+
     const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
-    const pubkey = new PublicKey(props.project.pda);
 
     // PDA 잔고 조회
     const balanceLamports = await connection.getBalance(pubkey);
@@ -80,13 +126,133 @@ const fetchPDABalance = async () => {
     }
   } catch (err) {
     console.error('Failed to fetch PDA balance:', err);
+    pdaBalance.value = 0;
   } finally {
     loading.value = false;
   }
 };
 
+const fetchFundingHistory = async () => {
+  loadingHistory.value = true;
+  try {
+    // PDA 주소 검증
+    if (!props.project.pda || props.project.pda.length < 32) {
+      console.warn('Invalid or missing PDA address');
+      fundingHistory.value = [];
+      return;
+    }
+
+    const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+    let pubkey: PublicKey;
+
+    try {
+      pubkey = new PublicKey(props.project.pda);
+    } catch (err) {
+      console.error('Invalid PDA address:', props.project.pda, err);
+      fundingHistory.value = [];
+      return;
+    }
+
+    // PDA로 들어온 트랜잭션 가져오기 (최근 10개)
+    const signatures = await connection.getSignaturesForAddress(pubkey, { limit: 10 });
+
+    const transactions: FundingTransaction[] = [];
+
+    for (const sig of signatures) {
+      try {
+        const tx = await connection.getTransaction(sig.signature, {
+          maxSupportedTransactionVersion: 0
+        });
+
+        if (!tx || !tx.meta) continue;
+
+        // PDA의 인덱스 찾기 (accountKeys에서)
+        const pdaIndex = tx.transaction.message.staticAccountKeys?.findIndex(
+          key => key.toString() === props.project.pda
+        );
+
+        if (pdaIndex === undefined || pdaIndex === -1) continue;
+
+        // PDA의 잔액 변화 확인
+        const preBalance = tx.meta.preBalances[pdaIndex] || 0;
+        const postBalance = tx.meta.postBalances[pdaIndex] || 0;
+        const amount = (postBalance - preBalance) / LAMPORTS_PER_SOL;
+
+        // 금액이 양수이면 입금
+        if (amount > 0) {
+          // 첫 번째 서명자가 보낸 사람 (fee payer)
+          const senderPubkey = tx.transaction.message.staticAccountKeys?.[0];
+          const sender = senderPubkey?.toString() || 'Unknown';
+
+          transactions.push({
+            signature: sig.signature,
+            amount: amount,
+            sender: sender,
+            timestamp: sig.blockTime || 0
+          });
+        }
+      } catch (err) {
+        console.error('Failed to parse transaction:', sig.signature, err);
+      }
+    }
+
+    fundingHistory.value = transactions;
+  } catch (err) {
+    console.error('Failed to fetch funding history:', err);
+    fundingHistory.value = [];
+  } finally {
+    loadingHistory.value = false;
+  }
+};
+
+const handleFundTreasury = async () => {
+  const amount = parseFloat(fundAmount.value);
+
+  // 입력 검증
+  if (!fundAmount.value || isNaN(amount) || amount <= 0) {
+    fundError.value = 'Please enter a valid amount greater than 0';
+    return;
+  }
+
+  if (amount > 10) {
+    fundError.value = 'Maximum 10 SOL per transaction';
+    return;
+  }
+
+  fundingInProgress.value = true;
+  fundError.value = '';
+
+  try {
+    console.log(`Funding ${amount} SOL to ${props.project.pda}...`);
+
+    const txHash = await fundTreasury(props.project.pda, amount);
+
+    console.log('✅ Treasury funded! TX:', txHash);
+
+    // 잔액 새로고침
+    await fetchPDABalance();
+
+    // 입금 내역 새로고침
+    await fetchFundingHistory();
+
+    // 성공 메시지
+    alert(`Successfully funded ${amount} SOL!\n\nTransaction: ${txHash.slice(0, 16)}...`);
+
+    // 모달 닫기
+    showFundModal.value = false;
+    fundAmount.value = '';
+
+  } catch (err) {
+    console.error('Fund treasury error:', err);
+    fundError.value = err instanceof Error ? err.message : 'Failed to fund treasury';
+  } finally {
+    fundingInProgress.value = false;
+  }
+};
+
 onMounted(() => {
   fetchPDABalance();
+  fetchFundingHistory();
 });
 </script>
 
@@ -150,6 +316,44 @@ onMounted(() => {
                 </div>
               </div>
             </div>
+
+            <!-- Funding History Ticker -->
+            <div class="info-card funding-history-card">
+              <div class="card-header">
+                <h3>💸 Funding History</h3>
+                <span v-if="loadingHistory" class="loading-badge">Loading...</span>
+              </div>
+
+              <div v-if="fundingHistory.length === 0 && !loadingHistory" class="empty-state">
+                <span class="empty-icon">📭</span>
+                <p>No funding transactions yet</p>
+                <small>Be the first to fund this project!</small>
+              </div>
+
+              <div v-else class="funding-ticker">
+                <div
+                  v-for="tx in fundingHistory"
+                  :key="tx.signature"
+                  class="ticker-item"
+                >
+                  <div class="ticker-header">
+                    <span class="ticker-amount">+{{ tx.amount.toFixed(4) }} SOL</span>
+                    <span class="ticker-time">{{ formatTimestamp(tx.timestamp) }}</span>
+                  </div>
+                  <div class="ticker-details">
+                    <span class="ticker-label">From:</span>
+                    <code class="ticker-address">{{ shortAddress(tx.sender) }}</code>
+                  </div>
+                  <a
+                    :href="`https://explorer.solana.com/tx/${tx.signature}?cluster=devnet`"
+                    target="_blank"
+                    class="ticker-link"
+                  >
+                    🔍 View TX
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- CENTER COLUMN: Milestone Progress -->
@@ -192,7 +396,7 @@ onMounted(() => {
 
             <!-- Action Buttons -->
             <div class="action-buttons">
-              <button class="btn-action btn-fund">
+              <button class="btn-action btn-fund" @click="showFundModal = true">
                 💰 Fund Treasury
               </button>
               <button class="btn-action btn-tasks">
@@ -257,6 +461,70 @@ onMounted(() => {
             </div>
           </div>
 
+        </div>
+      </div>
+
+      <!-- Fund Treasury Modal -->
+      <div v-if="showFundModal" class="fund-modal-overlay" @click.self="showFundModal = false">
+        <div class="fund-modal">
+          <div class="fund-modal-header">
+            <h3>💰 Fund Treasury</h3>
+            <button class="close-btn" @click="showFundModal = false">×</button>
+          </div>
+
+          <div class="fund-modal-content">
+            <p class="fund-description">
+              Send SOL to the project treasury. Funds can be withdrawn by project admins.
+            </p>
+
+            <div class="fund-input-group">
+              <label>Amount (SOL)</label>
+              <input
+                v-model="fundAmount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                max="10"
+                placeholder="0.1"
+                class="fund-input"
+                :disabled="fundingInProgress"
+              />
+              <span class="fund-hint">Min: 0.01 SOL | Max: 10 SOL</span>
+            </div>
+
+            <div v-if="fundError" class="fund-error">
+              ⚠️ {{ fundError }}
+            </div>
+
+            <div class="fund-info">
+              <div class="info-row">
+                <span>Current Balance:</span>
+                <span class="value">{{ pdaBalance.toFixed(4) }} SOL</span>
+              </div>
+              <div class="info-row">
+                <span>Network:</span>
+                <span class="value">Devnet</span>
+              </div>
+            </div>
+
+            <div class="fund-actions">
+              <button
+                class="btn-cancel"
+                @click="showFundModal = false"
+                :disabled="fundingInProgress"
+              >
+                Cancel
+              </button>
+              <button
+                class="btn-confirm"
+                @click="handleFundTreasury"
+                :disabled="fundingInProgress || !fundAmount"
+              >
+                <span v-if="fundingInProgress">Funding...</span>
+                <span v-else>Fund Treasury</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -803,5 +1071,331 @@ onMounted(() => {
   .details-modal {
     max-width: 100%;
   }
+}
+
+/* Fund Treasury Modal */
+.fund-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  animation: fadeIn 0.2s ease;
+}
+
+.fund-modal {
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  animation: slideUp 0.3s ease;
+  overflow: hidden;
+}
+
+.fund-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid #222;
+}
+
+.fund-modal-header h3 {
+  font-size: 1.4rem;
+  margin: 0;
+  color: white;
+}
+
+.fund-modal-content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fund-description {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.fund-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fund-input-group label {
+  color: #aaa;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.fund-input {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: white;
+  font-size: 1.1rem;
+  font-family: monospace;
+  transition: all 0.2s;
+}
+
+.fund-input:focus {
+  outline: none;
+  border-color: #4ade80;
+  background: #0a0a0a;
+}
+
+.fund-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fund-hint {
+  color: #666;
+  font-size: 0.75rem;
+}
+
+.fund-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.fund-info {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fund-info .info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.fund-info .value {
+  color: #4ade80;
+  font-weight: 500;
+  font-family: monospace;
+}
+
+.fund-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.btn-cancel {
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  border-color: #555;
+  color: white;
+}
+
+.btn-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-confirm {
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #4ade80;
+  color: #050505;
+  border: none;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background: #22c55e;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Funding History Ticker */
+.funding-history-card {
+  background: #0a0a0a;
+  border-color: rgba(74, 222, 128, 0.2);
+}
+
+.loading-badge {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin: 0 0 4px 0;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.empty-state small {
+  color: #666;
+  font-size: 0.75rem;
+}
+
+.funding-ticker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Custom scrollbar */
+.funding-ticker::-webkit-scrollbar {
+  width: 6px;
+}
+
+.funding-ticker::-webkit-scrollbar-track {
+  background: #111;
+  border-radius: 3px;
+}
+
+.funding-ticker::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.funding-ticker::-webkit-scrollbar-thumb:hover {
+  background: #4ade80;
+}
+
+.ticker-item {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+  animation: slideInLeft 0.3s ease;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.ticker-item:hover {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.02);
+}
+
+.ticker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ticker-amount {
+  color: #4ade80;
+  font-weight: 700;
+  font-size: 1rem;
+  font-family: monospace;
+}
+
+.ticker-time {
+  color: #666;
+  font-size: 0.75rem;
+}
+
+.ticker-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ticker-label {
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.ticker-address {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #aaa;
+  background: #0a0a0a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #222;
+}
+
+.ticker-link {
+  display: inline-block;
+  color: #4ade80;
+  text-decoration: none;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.ticker-link:hover {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: #4ade80;
 }
 </style>

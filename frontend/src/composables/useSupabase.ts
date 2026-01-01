@@ -35,7 +35,8 @@ export function useSupabase() {
 
   // 깃허브 로그인 함수
   const loginWithGithub = async () => {
-    const redirectTo = window.location.origin; // 자동으로 현재 도메인 사용 (localhost 또는 Netlify)
+    // redirectTo를 현재 페이지로 설정 (인증 후 현재 페이지로 돌아옴)
+    const redirectTo = window.location.href;
 
     await supabase.auth.signInWithOAuth({
       provider: 'github',
