@@ -148,7 +148,7 @@ const toggleGithubConnection = async () => {
 };
 
 // 0.1 SOL 결제 함수 (보안 강화)
-const pay01SOL = async (): Promise<string> => {
+const pay01SOL = async (projectName: string): Promise<string> => {
   try {
     // 1. 지갑 연결 확인
     // @ts-expect-error - Phantom wallet global
@@ -172,9 +172,21 @@ const pay01SOL = async (): Promise<string> => {
       );
     }
 
-    // 3. 트랜잭션 생성
-    // 임시: 본인에게 전송 (추후 Treasury PDA로 변경 예정)
-    const toPubkey = fromPubkey;
+    // 3. Project PDA 주소 derive
+    const PROGRAM_ID = new PublicKey('FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW');
+    const [projectPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("project"),
+        Buffer.from(projectName),
+        fromPubkey.toBuffer()
+      ],
+      PROGRAM_ID
+    );
+
+    console.log('Derived Project PDA:', projectPda.toBase58());
+
+    // 4. 트랜잭션 생성: User Wallet → Project PDA (Escrow)
+    const toPubkey = projectPda;
     const lamports = 0.1 * LAMPORTS_PER_SOL;
 
     const transaction = new Transaction().add(
@@ -266,15 +278,24 @@ const handleCreate = async () => {
   const validMembers = members.value.filter(m => m.length > 30);
 
   try {
-    // 1️⃣ 먼저 0.1 SOL 결제
-    console.log('Processing 0.1 SOL payment...');
-    const txHash = await pay01SOL();
+    // 1️⃣ 먼저 0.1 SOL 결제 (Project PDA로 전송)
+    console.log('Processing 0.1 SOL payment to Project PDA...');
+    const txHash = await pay01SOL(projectName.value);
     paymentTxHash.value = txHash;
     console.log('Payment successful! Transaction:', txHash);
 
-    // 2️⃣ PDA 지갑 주소 생성
-    const pdaAddress = generatePDA();
-    console.log('Generated PDA address:', pdaAddress);
+    // 2️⃣ PDA 주소 계산 (실제 온체인 주소 사용)
+    const PROGRAM_ID = new PublicKey('FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW');
+    const [projectPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("project"),
+        Buffer.from(projectName.value),
+        new PublicKey(connectedWallet.value).toBuffer()
+      ],
+      PROGRAM_ID
+    );
+    const pdaAddress = projectPda.toBase58();
+    console.log('Project PDA address:', pdaAddress);
 
     // 3️⃣ Supabase에 프로젝트 저장
     const { data, error: createError } = await createProject({
