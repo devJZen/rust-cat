@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useSupabase } from '../composables/useSupabase';
+import { useAnchorProject } from '../composables/useAnchorProject';
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 // --- State ---
@@ -117,6 +118,7 @@ const emit = defineEmits(['project-created', 'show-waitlist']);
 
 // --- Composables ---
 const { createProject, loginWithGithub, supabase } = useSupabase();
+const { createProjectOnChain, fundTreasury } = useAnchorProject();
 
 // --- Handlers ---
 const addField = (arr: string[]) => arr.push('');
@@ -278,24 +280,27 @@ const handleCreate = async () => {
   const validMembers = members.value.filter(m => m.length > 30);
 
   try {
-    // 1️⃣ 먼저 0.1 SOL 결제 (Project PDA로 전송)
-    console.log('Processing 0.1 SOL payment to Project PDA...');
-    const txHash = await pay01SOL(projectName.value);
-    paymentTxHash.value = txHash;
-    console.log('Payment successful! Transaction:', txHash);
+    // 1️⃣ 프로젝트 PDA 생성 (Anchor instruction 호출)
+    console.log('Creating project on-chain...');
+    const githubEnabled = isGithubConnected.value && projectType.value === 'project';
+    const jiraEnabled = false; // 아직 Jira 통합 없음
 
-    // 2️⃣ PDA 주소 계산 (실제 온체인 주소 사용)
-    const PROGRAM_ID = new PublicKey('FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW');
-    const [projectPda] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("project"),
-        Buffer.from(projectName.value),
-        new PublicKey(connectedWallet.value).toBuffer()
-      ],
-      PROGRAM_ID
+    const result = await createProjectOnChain(
+      projectName.value,
+      validAdmins,
+      validMembers,
+      githubEnabled,
+      jiraEnabled
     );
-    const pdaAddress = projectPda.toBase58();
-    console.log('Project PDA address:', pdaAddress);
+
+    const pdaAddress = result.pda;
+    paymentTxHash.value = result.txHash;
+    console.log('✅ Project PDA created!', pdaAddress);
+
+    // 2️⃣ Treasury에 0.1 SOL 입금 (fund_treasury instruction)
+    console.log('Funding treasury with 0.1 SOL...');
+    const fundTxHash = await fundTreasury(pdaAddress, 0.1);
+    console.log('✅ Treasury funded!', fundTxHash);
 
     // 3️⃣ Supabase에 프로젝트 저장
     const { data, error: createError } = await createProject({
@@ -306,9 +311,9 @@ const handleCreate = async () => {
       members: validMembers,
       pda: pdaAddress,
       deadline: projectDeadline.value || undefined,
-      payment_tx: txHash, // 결제 트랜잭션 해시 저장
+      payment_tx: fundTxHash, // Treasury funding 트랜잭션 해시 저장
       // integrations는 나중에 구현 (현재는 waitlist로 리디렉션)
-      balance: 0
+      balance: 0.1 // 초기 treasury 잔액
     });
 
     if (createError) {

@@ -6,35 +6,9 @@ import * as anchor from '@coral-xyz/anchor';
 // Mock 모드 (프로그램이 배포되지 않았을 때)
 const MOCK_MODE = false; // 실제 배포된 프로그램 사용
 
-// 가상의 IDL (Smart Contract 인터페이스 정의)
-// 실제 프로젝트에서는 target/types/your_program.ts 에서 가져와야 함
-const IDL = {
-  "address": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
-  "version": "0.1.0",
-  "name": "trawelt_project",
-  "metadata": {
-    "name": "trawelt_project",
-    "version": "0.1.0",
-    "spec": "0.1.0"
-  },
-  "instructions": [
-    {
-      "name": "initializeProject",
-      "accounts": [
-        { "name": "projectAccount", "isMut": true, "isSigner": false },
-        { "name": "authority", "isMut": true, "isSigner": true },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
-      ],
-      "args": [
-        { "name": "name", "type": "string" },
-        { "name": "admins", "type": { "vec": "publicKey" } },
-        { "name": "members", "type": { "vec": "publicKey" } }
-      ]
-    }
-  ],
-  "accounts": [],
-  "types": []
-};
+// 실제 배포된 프로그램 IDL (from target/idl/garden_sol.json)
+import IDL_JSON from '../../../target/idl/garden_sol.json';
+const IDL = IDL_JSON;
 
 export function useAnchorProject() {
   const loading = ref(false);
@@ -44,30 +18,15 @@ export function useAnchorProject() {
   const createProjectOnChain = async (
     name: string,
     adminAddresses: string[],
-    memberAddresses: string[]
-  ) => {
+    memberAddresses: string[],
+    githubEnabled: boolean = false,
+    jiraEnabled: boolean = false
+  ): Promise<{ pda: string; txHash: string }> => {
     loading.value = true;
     error.value = '';
     txHash.value = '';
 
     try {
-      // Mock 모드 (프로그램이 배포되지 않았을 때)
-      if (MOCK_MODE) {
-        // 시뮬레이션
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // 가짜 트랜잭션 해시 생성
-        const mockTxHash = '5' + 'A'.repeat(87); // 임시 해시
-        txHash.value = mockTxHash;
-
-        console.log("🎭 Mock Mode: Project Created!");
-        console.log("Project Name:", name);
-        console.log("Admins:", adminAddresses);
-        console.log("Members:", memberAddresses);
-
-        return mockTxHash;
-      }
-
       // === 실제 온체인 모드 ===
       // 1. Provider 설정 (Phantom 등 브라우저 지갑 사용)
       // @ts-expect-error - Phantom wallet global
@@ -101,25 +60,32 @@ export function useAnchorProject() {
         programId
       );
 
+      console.log('Derived Project PDA:', projectPda.toBase58());
+
       // 4. 주소 변환 (String -> PublicKey)
       const admins = adminAddresses.map(addr => new PublicKey(addr));
       const members = memberAddresses.map(addr => new PublicKey(addr));
 
-      // 5. 트랜잭션 전송
+      // 5. initialize_project instruction 호출
+      // @ts-expect-error - Anchor IDL methods typing
       const tx = await program.methods
-        .initializeProject!(name, admins, members)
+        .initializeProject(name, admins, members, githubEnabled, jiraEnabled)
         .accounts({
-          projectAccount: projectPda,
-          authority: provider.wallet.publicKey,
+          project: projectPda,
+          creator: provider.wallet.publicKey,
           systemProgram: SystemProgram.programId,
         })
         .rpc();
 
       txHash.value = tx;
-      console.log("Project Created! PDA:", projectPda.toString());
+      console.log("✅ Project PDA created on-chain!");
+      console.log("PDA:", projectPda.toBase58());
       console.log("Transaction:", tx);
 
-      return projectPda.toString();
+      return {
+        pda: projectPda.toBase58(),
+        txHash: tx
+      };
 
     } catch (err) {
       console.error("Error creating project:", err);
@@ -163,8 +129,8 @@ export function useAnchorProject() {
       const projectPubkey = new PublicKey(projectPda);
       const lamports = new anchor.BN(amount * 1000000000); // SOL to lamports
 
+      // @ts-expect-error - Anchor IDL methods typing
       const tx = await program.methods
-        // @ts-expect-error - IDL types
         .fundTreasury(lamports)
         .accounts({
           project: projectPubkey,
@@ -221,8 +187,8 @@ export function useAnchorProject() {
       const recipient = new PublicKey(recipientAddress);
       const lamports = new anchor.BN(amount * 1000000000); // SOL to lamports
 
+      // @ts-expect-error - Anchor IDL methods typing
       const tx = await program.methods
-        // @ts-expect-error - IDL types
         .withdrawFunds(lamports)
         .accounts({
           project: projectPubkey,
