@@ -108,133 +108,155 @@ onMounted(() => {
         <p>Loading on-chain data...</p>
       </div>
 
-      <!-- Content -->
+      <!-- Content - 3 Column Layout -->
       <div v-else class="modal-content">
+        <div class="three-column-layout">
 
-        <!-- PDA Section -->
-        <div class="info-card pda-card">
-          <div class="card-header">
-            <h3>🔐 Project Wallet (PDA)</h3>
-            <span class="badge">On-Chain</span>
-          </div>
-
-          <div class="pda-address">
-            <code>{{ project.pda }}</code>
-            <button class="btn-copy" @click="copyToClipboard(project.pda)">
-              📋
-            </button>
-          </div>
-
-          <div class="pda-info">
-            <div class="info-row">
-              <span class="label">Balance:</span>
-              <span class="value balance">{{ pdaBalance.toFixed(4) }} SOL</span>
+          <!-- LEFT COLUMN: Metadata -->
+          <div class="column column-left">
+            <div class="info-card">
+              <h3>ℹ️ Project Information</h3>
+              <div class="metadata-list">
+                <div class="meta-row">
+                  <span class="meta-label">Created:</span>
+                  <span class="meta-value">{{ formatDate(project.createdAt) }}</span>
+                </div>
+                <div class="meta-row">
+                  <span class="meta-label">Project ID:</span>
+                  <span class="meta-value code">{{ shortAddress(project.pda) }}</span>
+                </div>
+                <div class="meta-row">
+                  <span class="meta-label">Total Tasks:</span>
+                  <span class="meta-value">{{ project.totalTasks }} milestones</span>
+                </div>
+              </div>
             </div>
-            <div class="info-row">
-              <span class="label">Network:</span>
-              <span class="value">Devnet</span>
-            </div>
-          </div>
 
-          <a :href="explorerUrl" target="_blank" class="btn-explorer">
-            🔍 View on Solana Explorer →
-          </a>
-        </div>
-
-        <!-- Payment Transaction Section -->
-        <div v-if="project.payment_tx" class="info-card payment-card">
-          <div class="card-header">
-            <h3>💳 Creation Payment</h3>
-            <span class="badge badge-success">Confirmed</span>
-          </div>
-
-          <div class="payment-info">
-            <div class="info-row">
-              <span class="label">Amount Paid:</span>
-              <span class="value balance">0.1 SOL</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Transaction:</span>
-              <code class="tx-hash">{{ shortAddress(project.payment_tx) }}</code>
+            <!-- Technical Details -->
+            <div v-if="onChainData" class="info-card technical-card">
+              <h3>⚙️ Technical Details</h3>
+              <div class="technical-info">
+                <div class="tech-row">
+                  <span class="tech-label">Program Owner:</span>
+                  <code class="tech-value">{{ shortAddress(onChainData.owner) }}</code>
+                </div>
+                <div class="tech-row">
+                  <span class="tech-label">Executable:</span>
+                  <span class="tech-value">{{ onChainData.executable ? 'Yes' : 'No' }}</span>
+                </div>
+                <div class="tech-row">
+                  <span class="tech-label">Rent Lamports:</span>
+                  <span class="tech-value">{{ onChainData.lamports.toLocaleString() }}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <a :href="paymentExplorerUrl" target="_blank" class="btn-explorer btn-explorer-payment">
-            🔍 View Payment Transaction →
-          </a>
-        </div>
+          <!-- CENTER COLUMN: Milestone Progress -->
+          <div class="column column-center">
+            <div class="info-card progress-card">
+              <h3>📊 Milestone Progress</h3>
+              <div class="progress-stats">
+                <div class="stat">
+                  <div class="stat-value">{{ project.tasksCompleted }}</div>
+                  <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">{{ project.totalTasks - project.tasksCompleted }}</div>
+                  <div class="stat-label">Remaining</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-value">{{ progressPercent }}%</div>
+                  <div class="stat-label">Progress</div>
+                </div>
+              </div>
 
-        <!-- Progress Section -->
-        <div class="info-card">
-          <h3>📊 Milestone Progress</h3>
-          <div class="progress-stats">
-            <div class="stat">
-              <div class="stat-value">{{ project.tasksCompleted }}</div>
-              <div class="stat-label">Completed</div>
+              <div class="progress-bar-large">
+                <div class="progress-fill" :style="{ width: progressPercent + '%' }">
+                  <span class="progress-text">{{ progressPercent }}%</span>
+                </div>
+              </div>
+
+              <!-- Pixel Grid Placeholder -->
+              <div class="pixel-grid-preview">
+                <div class="pixel-grid">
+                  <div
+                    v-for="i in 100"
+                    :key="i"
+                    class="pixel"
+                    :class="{ active: i <= project.tasksCompleted }"
+                  ></div>
+                </div>
+              </div>
             </div>
-            <div class="stat">
-              <div class="stat-value">{{ project.totalTasks - project.tasksCompleted }}</div>
-              <div class="stat-label">Remaining</div>
-            </div>
-            <div class="stat">
-              <div class="stat-value">{{ progressPercent }}%</div>
-              <div class="stat-label">Progress</div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+              <button class="btn-action btn-fund">
+                💰 Fund Treasury
+              </button>
+              <button class="btn-action btn-tasks">
+                ✅ Update Tasks
+              </button>
             </div>
           </div>
 
-          <div class="progress-bar-large">
-            <div class="progress-fill" :style="{ width: progressPercent + '%' }">
-              <span class="progress-text">{{ progressPercent }}%</span>
+          <!-- RIGHT COLUMN: Blockchain Info -->
+          <div class="column column-right">
+            <!-- PDA Section -->
+            <div class="info-card pda-card">
+              <div class="card-header">
+                <h3>🔐 Project Wallet</h3>
+                <span class="badge">On-Chain</span>
+              </div>
+
+              <div class="pda-address">
+                <code>{{ project.pda }}</code>
+                <button class="btn-copy" @click="copyToClipboard(project.pda)">
+                  📋
+                </button>
+              </div>
+
+              <div class="pda-info">
+                <div class="info-row">
+                  <span class="label">Balance:</span>
+                  <span class="value balance">{{ pdaBalance.toFixed(4) }} SOL</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Network:</span>
+                  <span class="value">Devnet</span>
+                </div>
+              </div>
+
+              <a :href="explorerUrl" target="_blank" class="btn-explorer">
+                🔍 View on Explorer →
+              </a>
+            </div>
+
+            <!-- Payment Transaction Section -->
+            <div v-if="project.payment_tx" class="info-card payment-card">
+              <div class="card-header">
+                <h3>💳 Payment</h3>
+                <span class="badge badge-success">Confirmed</span>
+              </div>
+
+              <div class="payment-info">
+                <div class="info-row">
+                  <span class="label">Amount:</span>
+                  <span class="value balance">0.1 SOL</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">TX:</span>
+                  <code class="tx-hash">{{ shortAddress(project.payment_tx) }}</code>
+                </div>
+              </div>
+
+              <a :href="paymentExplorerUrl" target="_blank" class="btn-explorer btn-explorer-payment">
+                🔍 View TX →
+              </a>
             </div>
           </div>
-        </div>
 
-        <!-- Metadata Section -->
-        <div class="info-card">
-          <h3>ℹ️ Project Information</h3>
-          <div class="metadata-list">
-            <div class="meta-row">
-              <span class="meta-label">Created:</span>
-              <span class="meta-value">{{ formatDate(project.createdAt) }}</span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-label">Project ID:</span>
-              <span class="meta-value code">{{ shortAddress(project.pda) }}</span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-label">Total Tasks:</span>
-              <span class="meta-value">{{ project.totalTasks }} milestones</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- On-Chain Account Info -->
-        <div v-if="onChainData" class="info-card technical-card">
-          <h3>⚙️ Technical Details</h3>
-          <div class="technical-info">
-            <div class="tech-row">
-              <span class="tech-label">Program Owner:</span>
-              <code class="tech-value">{{ shortAddress(onChainData.owner) }}</code>
-            </div>
-            <div class="tech-row">
-              <span class="tech-label">Executable:</span>
-              <span class="tech-value">{{ onChainData.executable ? 'Yes' : 'No' }}</span>
-            </div>
-            <div class="tech-row">
-              <span class="tech-label">Rent Lamports:</span>
-              <span class="tech-value">{{ onChainData.lamports.toLocaleString() }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-          <button class="btn-action btn-fund">
-            💰 Fund Treasury
-          </button>
-          <button class="btn-action btn-tasks">
-            ✅ Update Tasks
-          </button>
         </div>
       </div>
     </div>
@@ -261,7 +283,7 @@ onMounted(() => {
   border: 1px solid #333;
   border-radius: 16px;
   width: 100%;
-  max-width: 700px;
+  max-width: 1400px;
   max-height: 90vh;
   overflow-y: auto;
   animation: slideUp 0.3s ease;
@@ -339,9 +361,32 @@ onMounted(() => {
 /* Content */
 .modal-content {
   padding: 32px;
+}
+
+/* Three Column Layout */
+.three-column-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.column {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+}
+
+.column-left {
+  /* Metadata column */
+}
+
+.column-center {
+  /* Milestone progress - largest column */
+}
+
+.column-right {
+  /* Blockchain info */
 }
 
 /* Info Cards */
@@ -507,12 +552,18 @@ onMounted(() => {
   border-color: #4ade80;
 }
 
+/* Progress Card */
+.progress-card {
+  background: rgba(74, 222, 128, 0.02);
+  border-color: rgba(74, 222, 128, 0.15);
+}
+
 /* Progress Stats */
 .progress-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .stat {
@@ -557,6 +608,37 @@ onMounted(() => {
   color: #050505;
   font-weight: 700;
   font-size: 0.9rem;
+}
+
+/* Pixel Grid Preview */
+.pixel-grid-preview {
+  margin-top: 24px;
+  padding: 20px;
+  background: #0a0a0a;
+  border-radius: 12px;
+  border: 1px solid #222;
+}
+
+.pixel-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.pixel {
+  aspect-ratio: 1;
+  background: #1a1a1a;
+  border-radius: 4px;
+  border: 1px solid #222;
+  transition: all 0.3s ease;
+}
+
+.pixel.active {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  border-color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
 }
 
 /* Metadata */
@@ -623,10 +705,10 @@ onMounted(() => {
 
 /* Action Buttons */
 .action-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding-top: 8px;
+  margin-top: 4px;
 }
 
 .btn-action {
@@ -679,12 +761,30 @@ onMounted(() => {
 }
 
 /* Responsive */
-@media (max-width: 600px) {
-  .progress-stats {
+@media (max-width: 1200px) {
+  .three-column-layout {
     grid-template-columns: 1fr;
   }
 
-  .action-buttons {
+  .column-center {
+    order: 1;
+  }
+
+  .column-left {
+    order: 2;
+  }
+
+  .column-right {
+    order: 3;
+  }
+
+  .details-modal {
+    max-width: 900px;
+  }
+}
+
+@media (max-width: 600px) {
+  .progress-stats {
     grid-template-columns: 1fr;
   }
 
@@ -694,6 +794,14 @@ onMounted(() => {
 
   .modal-content {
     padding: 24px;
+  }
+
+  .pixel-grid {
+    gap: 4px;
+  }
+
+  .details-modal {
+    max-width: 100%;
   }
 }
 </style>
