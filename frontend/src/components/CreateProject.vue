@@ -16,7 +16,10 @@ const success = ref(false);
 const isGithubConnected = ref(false);
 const githubUserName = ref('');
 const githubUserEmail = ref('');
+const githubUserHandle = ref(''); // GitHub username (@handle)
+const githubAvatarUrl = ref(''); // GitHub avatar
 const paymentTxHash = ref(''); // 결제 트랜잭션 해시
+const showGithubModal = ref(false); // GitHub 연동 모달
 
 // 프로젝트 타입 옵션
 const projectTypes = [
@@ -62,9 +65,11 @@ const namePlaceholder = computed(() => selectedType.value?.placeholder || 'Enter
 const isGithubRequired = computed(() => projectType.value === 'project');
 const canCreate = computed(() => {
   if (loading.value || success.value) return false;
-  if (isGithubRequired.value && !isGithubConnected.value) return false;
   return true;
 });
+
+// Work Project 선택 가능 여부
+const canSelectWorkProject = computed(() => isGithubConnected.value);
 
 // 지갑 주소 가져오기
 onMounted(async () => {
@@ -82,33 +87,51 @@ onMounted(async () => {
     console.error('Failed to get wallet address:', err);
   }
 
+  // GitHub 모달 파라미터 확인 (OAuth 리다이렉트 후)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('github_modal') === 'open') {
+    showGithubModal.value = true;
+    // URL 정리 (파라미터 제거)
+    urlParams.delete('github_modal');
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+    window.history.replaceState({}, '', newUrl);
+  }
+
   // 2. [수정됨] Supabase 세션 확인 (이미 로그인된 경우 자동 연동)
   const { data } = await supabase.auth.getSession();
 
   if (data.session?.user) {
     // 이미 로그인된 상태라면 바로 'Connected'로 표시
     isGithubConnected.value = true;
-    githubUserName.value = data.session.user.user_metadata?.full_name ||
-                          data.session.user.user_metadata?.name || 'User';
+    const metadata = data.session.user.user_metadata;
+    githubUserHandle.value = metadata?.user_name || metadata?.preferred_username || '';
+    githubUserName.value = metadata?.full_name || metadata?.name || 'User';
     githubUserEmail.value = data.session.user.email || '';
+    githubAvatarUrl.value = metadata?.avatar_url || '';
   } else {
     // 로그인 안 된 상태면 초기화
     isGithubConnected.value = false;
+    githubUserHandle.value = '';
     githubUserName.value = '';
     githubUserEmail.value = '';
+    githubAvatarUrl.value = '';
   }
 
   // 3. Auth 상태 변경 리스너 (로그인/로그아웃 실시간 감지)
   supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' && session?.user) {
       isGithubConnected.value = true;
-      githubUserName.value = session.user.user_metadata?.full_name ||
-                            session.user.user_metadata?.name || 'User';
+      const metadata = session.user.user_metadata;
+      githubUserHandle.value = metadata?.user_name || metadata?.preferred_username || '';
+      githubUserName.value = metadata?.full_name || metadata?.name || 'User';
       githubUserEmail.value = session.user.email || '';
+      githubAvatarUrl.value = metadata?.avatar_url || '';
     } else if (event === 'SIGNED_OUT') {
       isGithubConnected.value = false;
+      githubUserHandle.value = '';
       githubUserName.value = '';
       githubUserEmail.value = '';
+      githubAvatarUrl.value = '';
     }
   });
 });
@@ -126,22 +149,41 @@ const removeField = (arr: string[], idx: number) => {
   if (arr.length > 1) arr.splice(idx, 1);
 };
 
+// 프로젝트 타입 선택 핸들러
+const selectProjectType = (typeId: string) => {
+  if (loading.value || success.value) return;
+
+  // Work Project 선택 시도
+  if (typeId === 'project') {
+    if (!isGithubConnected.value) {
+      // GitHub 미연동 → 모달 띄우기
+      showGithubModal.value = true;
+      return;
+    }
+  }
+
+  // 타입 선택
+  projectType.value = typeId;
+};
+
 // GitHub 연결 토글 (클릭 한 번으로 연결/해제)
-const toggleGithubConnection = async () => {
+const toggleGithubConnection = async (fromModal = false) => {
   if (isGithubConnected.value) {
     // 이미 연결되어 있으면 → 연결 해제
     try {
       await supabase.auth.signOut();
       isGithubConnected.value = false;
+      githubUserHandle.value = '';
       githubUserName.value = '';
       githubUserEmail.value = '';
+      githubAvatarUrl.value = '';
     } catch (err) {
       console.error('Logout failed:', err);
     }
   } else {
     // 연결되어 있지 않으면 → GitHub OAuth 로그인
     try {
-      await loginWithGithub();
+      await loginWithGithub(fromModal); // 모달에서 호출되면 true 전달
     } catch (err) {
       console.error('GitHub login failed:', err);
       error.value = 'Failed to login with GitHub';
@@ -357,14 +399,21 @@ const handleCreate = async () => {
             <button
               v-for="type in projectTypes"
               :key="type.id"
-              :class="['type-card', { active: projectType === type.id }]"
-              @click="projectType = type.id"
+              :class="[
+                'type-card',
+                { active: projectType === type.id },
+                { 'needs-github': type.id === 'project' && !isGithubConnected }
+              ]"
+              @click="selectProjectType(type.id)"
               type="button"
               :disabled="loading || success"
             >
               <span class="type-icon">{{ type.icon }}</span>
               <span class="type-label">{{ type.label }}</span>
               <span class="type-description">{{ type.description }}</span>
+              <span v-if="type.id === 'project' && !isGithubConnected" class="github-required-badge">
+                🔒 Connect GitHub First
+              </span>
             </button>
           </div>
         </div>
@@ -422,40 +471,20 @@ const handleCreate = async () => {
           </div>
         </div>
 
-        <!-- 3. Integrations (Work Project만) -->
-        <div v-if="projectType === 'project'" class="integrations-group">
-          <label>Data Source Integration</label>
-          <p class="integration-subtitle">Connect your GitHub to track commits and issues automatically</p>
-
-          <!-- GitHub Integration -->
-          <div
-            class="toggle-row clickable-toggle"
-            :class="{ disabled: loading || success, connected: isGithubConnected }"
-            @click="!(loading || success) && toggleGithubConnection()"
-          >
-            <span class="icon">GH</span>
-            <span v-if="!isGithubConnected">GitHub Repository</span>
-            <div v-else class="github-user-info">
-              <span class="github-name">{{ githubUserName }}</span>
-              <span class="github-email">{{ githubUserEmail }}</span>
+        <!-- 3. Connected Integrations Info (Work Project만) -->
+        <div v-if="projectType === 'project' && isGithubConnected" class="integrations-info">
+          <label>Connected Integrations</label>
+          <div class="integration-card">
+            <div class="integration-left">
+              <img v-if="githubAvatarUrl" :src="githubAvatarUrl" alt="GitHub Avatar" class="github-avatar-small" />
+              <div class="integration-details">
+                <span class="integration-name">GitHub</span>
+                <span class="integration-user">@{{ githubUserHandle }}</span>
+              </div>
             </div>
-            <span v-if="!isGithubConnected" class="btn-connect-label">
-              Login with GitHub ↗
-            </span>
-            <span v-else class="btn-disconnect-label">
-              Connected ✓
-            </span>
-          </div>
-
-          <!-- Jira Integration (Coming Soon) -->
-          <div
-            class="toggle-row clickable"
-            :class="{ disabled: loading || success }"
-            @click="!(loading || success) && emit('show-waitlist')"
-          >
-            <span class="icon">JR</span>
-            <span>Jira Board</span>
-            <span class="coming-soon">Coming Soon</span>
+            <button class="btn-change" @click="showGithubModal = true" :disabled="loading || success">
+              Change
+            </button>
           </div>
         </div>
       </div>
@@ -501,19 +530,74 @@ const handleCreate = async () => {
           </div>
 
           <!-- GitHub 연동 필요 경고 -->
-          <div v-if="isGithubRequired && !isGithubConnected && !loading && !success" class="warning-msg">
-            ⚠️ GitHub connection required for Work Projects
-          </div>
-
           <button class="btn-deploy" @click="handleCreate" :disabled="!canCreate">
             <span v-if="loading">Creating Project...</span>
             <span v-else-if="success">Project Created ✓</span>
-            <span v-else-if="isGithubRequired && !isGithubConnected">Login with GitHub Required ↑</span>
             <span v-else>Create Treasury & Start</span>
           </button>
         </div>
       </div>
     </div>
+
+    <!-- GitHub 연동 모달 -->
+    <Transition name="modal-fade">
+      <div v-if="showGithubModal" class="modal-overlay" @click.self="showGithubModal = false">
+        <div class="modal-content github-modal">
+          <div class="modal-header">
+            <h2>Connect GitHub</h2>
+            <button class="modal-close" @click="showGithubModal = false">×</button>
+          </div>
+
+          <div class="modal-body">
+            <p class="modal-description">
+              Work Projects require GitHub integration to track commits, pull requests, and issues automatically.
+            </p>
+
+            <div v-if="!isGithubConnected" class="github-connect-area">
+              <div class="github-feature-list">
+                <div class="feature-item">
+                  <span class="feature-icon">✓</span>
+                  <span>Automatic commit tracking</span>
+                </div>
+                <div class="feature-item">
+                  <span class="feature-icon">✓</span>
+                  <span>Pull request milestones</span>
+                </div>
+                <div class="feature-item">
+                  <span class="feature-icon">✓</span>
+                  <span>Issue-based task management</span>
+                </div>
+              </div>
+
+              <button class="btn-github-login" @click="toggleGithubConnection(true)">
+                <span class="github-logo">GH</span>
+                Login with GitHub
+              </button>
+            </div>
+
+            <div v-else class="github-connected-area">
+              <div class="connected-profile">
+                <img v-if="githubAvatarUrl" :src="githubAvatarUrl" alt="GitHub Avatar" class="profile-avatar" />
+                <div class="profile-info">
+                  <span class="profile-handle">@{{ githubUserHandle }}</span>
+                  <span class="profile-name">{{ githubUserName }}</span>
+                  <span class="profile-email">{{ githubUserEmail }}</span>
+                </div>
+              </div>
+
+              <div class="modal-actions">
+                <button class="btn-modal-secondary" @click="toggleGithubConnection">
+                  Disconnect
+                </button>
+                <button class="btn-modal-primary" @click="showGithubModal = false; projectType = 'project'">
+                  Continue with Work Project
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -634,6 +718,28 @@ const handleCreate = async () => {
 .type-card:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.type-card.needs-github {
+  opacity: 0.6;
+  border-color: #666;
+  position: relative;
+}
+
+.type-card.needs-github:hover {
+  border-color: #888;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.github-required-badge {
+  font-size: 0.7rem;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+  display: inline-block;
 }
 
 .type-icon {
@@ -828,13 +934,37 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
   font-family: monospace;
   color: #888;
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a1a1a;
+  border-radius: 6px;
 }
 
 .toggle-row.connected .icon {
   color: #4ade80;
 }
 
-.github-user-info {
+.toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.github-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #4ade80;
+}
+
+.github-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -842,10 +972,28 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
   min-width: 0;
 }
 
-.github-name {
+.github-label {
   font-size: 0.9rem;
-  font-weight: 600;
-  color: white;
+  color: #ccc;
+}
+
+.github-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.github-handle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #4ade80;
+  font-family: monospace;
+}
+
+.github-name {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #aaa;
 }
 
 .github-email {
@@ -966,4 +1114,319 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
 .redirect-msg { font-size: 0.85rem; color: #888; margin-top: 8px; display: inline-block; }
 .error-msg { color: #ef4444; margin-bottom: 16px; font-size: 0.9rem; text-align: center; border: 1px solid #ef4444; padding: 12px; border-radius: 6px; }
 .warning-msg { color: #fbbf24; margin-bottom: 16px; font-size: 0.9rem; text-align: center; border: 1px solid #fbbf24; padding: 12px; border-radius: 6px; background: rgba(251, 191, 36, 0.05); }
+
+/* Integration Info Styles */
+.integrations-info {
+  margin-bottom: 32px;
+}
+
+.integration-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #111;
+  border: 1px solid #4ade80;
+  padding: 12px;
+  border-radius: 8px;
+  gap: 12px;
+}
+
+.integration-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.github-avatar-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #4ade80;
+  flex-shrink: 0;
+}
+
+.integration-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.integration-name {
+  font-size: 0.85rem;
+  color: #888;
+  font-weight: 500;
+}
+
+.integration-user {
+  font-size: 0.95rem;
+  color: #4ade80;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.btn-change {
+  background: transparent;
+  border: 1px solid #666;
+  color: #888;
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-change:hover:not(:disabled) {
+  border-color: #4ade80;
+  color: #4ade80;
+}
+
+.btn-change:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modal Styles */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+  border-bottom: 1px solid #222;
+}
+
+.modal-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: #222;
+  color: white;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-description {
+  color: #888;
+  line-height: 1.6;
+  margin-bottom: 24px;
+  font-size: 0.95rem;
+}
+
+.github-connect-area {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.github-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #111;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #222;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.feature-icon {
+  color: #4ade80;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.btn-github-login {
+  background: #4ade80;
+  color: #050505;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.btn-github-login:hover {
+  background: #22c55e;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.github-logo {
+  font-weight: bold;
+  font-family: monospace;
+  font-size: 1.2rem;
+}
+
+.github-connected-area {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.connected-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #111;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #4ade80;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #4ade80;
+  flex-shrink: 0;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-handle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #4ade80;
+  font-family: monospace;
+}
+
+.profile-name {
+  font-size: 0.95rem;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.profile-email {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-modal-primary {
+  flex: 1;
+  background: #4ade80;
+  color: #050505;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-primary:hover {
+  background: #22c55e;
+  box-shadow: 0 0 16px rgba(74, 222, 128, 0.3);
+}
+
+.btn-modal-secondary {
+  background: transparent;
+  color: #888;
+  border: 1px solid #444;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-secondary:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
 </style>
