@@ -20,6 +20,7 @@ const githubUserHandle = ref(''); // GitHub username (@handle)
 const githubAvatarUrl = ref(''); // GitHub avatar
 const paymentTxHash = ref(''); // 결제 트랜잭션 해시
 const showGithubModal = ref(false); // GitHub 연동 모달
+const isLocalhost = ref(false); // 로컬 환경 여부
 
 // 프로젝트 타입 옵션
 const projectTypes = [
@@ -73,6 +74,10 @@ const canSelectWorkProject = computed(() => isGithubConnected.value);
 
 // 지갑 주소 가져오기
 onMounted(async () => {
+  // 0. 로컬 환경 감지
+  isLocalhost.value = window.location.hostname === 'localhost' ||
+                      window.location.hostname === '127.0.0.1';
+
   // 1. Phantom 지갑 연결 확인
   try {
     // @ts-expect-error - Phantom wallet global
@@ -181,7 +186,19 @@ const toggleGithubConnection = async (fromModal = false) => {
       console.error('Logout failed:', err);
     }
   } else {
-    // 연결되어 있지 않으면 → GitHub OAuth 로그인
+    // 로컬 환경 체크
+    const isLocalhost = window.location.hostname === 'localhost' ||
+                       window.location.hostname === '127.0.0.1';
+
+    if (isLocalhost) {
+      // 로컬에서는 웨이팅리스트로 리다이렉트
+      console.log('Local environment detected. Redirecting to waitlist...');
+      showGithubModal.value = false; // 모달 닫기
+      emit('show-waitlist');
+      return;
+    }
+
+    // 프로덕션에서는 GitHub OAuth 로그인
     try {
       await loginWithGithub(fromModal); // 모달에서 호출되면 true 전달
     } catch (err) {
@@ -553,8 +570,18 @@ const handleCreate = async () => {
               Work Projects require GitHub integration to track commits, pull requests, and issues automatically.
             </p>
 
+            <!-- 로컬 환경 안내 -->
+            <div v-if="isLocalhost && !isGithubConnected" class="local-dev-notice">
+              <div class="notice-icon">🔧</div>
+              <div class="notice-content">
+                <h3>Local Development Mode</h3>
+                <p>GitHub OAuth is disabled in local environment to prevent redirect issues.</p>
+                <p class="notice-action">Join the waitlist to get notified when authentication is live.</p>
+              </div>
+            </div>
+
             <div v-if="!isGithubConnected" class="github-connect-area">
-              <div class="github-feature-list">
+              <div v-if="!isLocalhost" class="github-feature-list">
                 <div class="feature-item">
                   <span class="feature-icon">✓</span>
                   <span>Automatic commit tracking</span>
@@ -570,8 +597,10 @@ const handleCreate = async () => {
               </div>
 
               <button class="btn-github-login" @click="toggleGithubConnection(true)">
-                <span class="github-logo">GH</span>
-                Login with GitHub
+                <span v-if="isLocalhost">📧</span>
+                <span v-else class="github-logo">GH</span>
+                <span v-if="isLocalhost">Join Waitlist</span>
+                <span v-else>Login with GitHub</span>
               </button>
             </div>
 
@@ -1279,6 +1308,44 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
   line-height: 1.6;
   margin-bottom: 24px;
   font-size: 0.95rem;
+}
+
+.local-dev-notice {
+  display: flex;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(251, 146, 60, 0.1));
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.notice-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.notice-content h3 {
+  margin: 0 0 8px 0;
+  color: #fbbf24;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.notice-content p {
+  margin: 0 0 8px 0;
+  color: #888;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.notice-content p:last-child {
+  margin-bottom: 0;
+}
+
+.notice-action {
+  color: #aaa !important;
+  font-weight: 500;
 }
 
 .github-connect-area {

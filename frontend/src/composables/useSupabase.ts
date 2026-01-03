@@ -36,13 +36,12 @@ export function useSupabase() {
   // 깃허브 로그인 함수
   const loginWithGithub = async (returnToModal = false) => {
     // redirectTo를 현재 페이지로 설정 (인증 후 현재 페이지로 돌아옴)
+    const origin = window.location.origin;
     let redirectTo = window.location.href;
 
-    // 모달로 돌아가야 하는 경우 파라미터 추가
+    // 모달로 돌아가야 하는 경우 /create 경로에 파라미터 추가
     if (returnToModal) {
-      const url = new URL(window.location.href);
-      url.searchParams.set('github_modal', 'open');
-      redirectTo = url.toString();
+      redirectTo = `${origin}/create?github_modal=open`;
     }
 
     await supabase.auth.signInWithOAuth({

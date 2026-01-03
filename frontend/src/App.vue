@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import HeroOverlay from './components/HeroOverlay.vue';
 import PixelDashboard from './components/PixelDashboard.vue';
 import CreateProject from './components/CreateProject.vue';
@@ -10,6 +11,9 @@ import WalletInfo from './components/WalletInfo.vue';
 import Blog from './components/Blog.vue';
 import Leaderboard from './components/Leaderboard.vue';
 import Waitlist from './components/Waitlist.vue';
+
+const router = useRouter();
+const route = useRoute();
 
 // --- State ---
 const isAppMode = ref(false);       // 화면 모드 (false: Hero, true: App/ZoomOut)
@@ -86,12 +90,29 @@ const connectWallet = async () => {
   }
 };
 
+// 라우터 변경 감지 및 currentView 업데이트
+watch(() => route.path, (newPath) => {
+  const viewMap: Record<string, 'create' | 'dashboard' | 'blog' | 'leaderboard' | 'waitlist'> = {
+    '/': 'dashboard',
+    '/create': 'create',
+    '/blog': 'blog',
+    '/leaderboard': 'leaderboard',
+    '/waitlist': 'waitlist'
+  };
+
+  const newView = viewMap[newPath];
+  if (newView) {
+    currentView.value = newView;
+    isAppMode.value = true; // 라우트 접근 시 App 모드 활성화
+  }
+}, { immediate: true });
+
 // --- Lifecycle ---
 onMounted(async () => {
   window.addEventListener('wheel', handleWheel);
   window.addEventListener('keydown', handleKeydown);
 
-  // OAuth 에러 파라미터 처리 (GitHub 인증 거부 등)
+  // OAuth 에러 파라미터 처리 (GitHub 인증 거부/실패 등)
   const urlParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.slice(1));
 
@@ -106,9 +127,8 @@ onMounted(async () => {
       console.log('GitHub authentication was cancelled by user');
     }
 
-    // 강제로 깨끗한 홈으로 리다이렉트 (히스토리에 남기지 않음)
-    // replace는 페이지를 완전히 새로 로드하므로 hash와 query 모두 제거됨
-    window.location.replace('/');
+    // 웨이팅리스트로 리다이렉트
+    router.replace('/waitlist');
     return; // 이후 코드 실행 방지
   }
 
@@ -165,12 +185,12 @@ onUnmounted(() => {
         <ProjectDashboard
           v-if="currentView === 'dashboard'"
           :key="dashboardKey"
-          @create-project="currentView = 'create'"
+          @create-project="router.push('/create')"
         />
         <CreateProject
           v-else-if="currentView === 'create'"
-          @project-created="currentView = 'dashboard'; dashboardKey++"
-          @show-waitlist="currentView = 'waitlist'"
+          @project-created="router.push('/'); dashboardKey++"
+          @show-waitlist="router.push('/waitlist')"
         />
         <Blog v-else-if="currentView === 'blog'" />
         <Leaderboard v-else-if="currentView === 'leaderboard'" />
@@ -194,11 +214,11 @@ onUnmounted(() => {
       :isOpen="isNavOpen"
       :walletAddress="walletAddress"
       @toggle="isNavOpen = !isNavOpen"
-      @show-dashboard="currentView = 'dashboard'"
+      @show-dashboard="router.push('/')"
       @show-wallet-info="showWalletInfo = true"
-      @show-blog="currentView = 'blog'"
-      @show-leaderboard="currentView = 'leaderboard'"
-      @show-waitlist="currentView = 'waitlist'"
+      @show-blog="router.push('/blog')"
+      @show-leaderboard="router.push('/leaderboard')"
+      @show-waitlist="router.push('/waitlist')"
     />
 
     <!-- ★ Wallet Modal ★ -->
@@ -215,7 +235,7 @@ onUnmounted(() => {
       <WalletInfo
         v-if="showWalletInfo"
         @close="showWalletInfo = false"
-        @disconnect="isWalletConnected = false; isAppMode = false; currentView = 'dashboard'; showWalletInfo = false; walletAddress = '';"
+        @disconnect="isWalletConnected = false; isAppMode = false; router.push('/'); showWalletInfo = false; walletAddress = '';"
       />
     </Transition>
 
