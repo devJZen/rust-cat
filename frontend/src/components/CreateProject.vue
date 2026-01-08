@@ -21,6 +21,7 @@ const githubAvatarUrl = ref(''); // GitHub avatar
 const paymentTxHash = ref(''); // 결제 트랜잭션 해시
 const showGithubModal = ref(false); // GitHub 연동 모달
 const isLocalhost = ref(false); // 로컬 환경 여부
+const justAuthenticated = ref(false); // OAuth 완료 직후 여부
 
 // 프로젝트 타입 옵션
 const projectTypes = [
@@ -92,16 +93,6 @@ onMounted(async () => {
     console.error('Failed to get wallet address:', err);
   }
 
-  // GitHub 모달 파라미터 확인 (OAuth 리다이렉트 후)
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('github_modal') === 'open') {
-    showGithubModal.value = true;
-    // URL 정리 (파라미터 제거)
-    urlParams.delete('github_modal');
-    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
-    window.history.replaceState({}, '', newUrl);
-  }
-
   // 2. [수정됨] Supabase 세션 확인 (이미 로그인된 경우 자동 연동)
   const { data } = await supabase.auth.getSession();
 
@@ -113,6 +104,12 @@ onMounted(async () => {
     githubUserName.value = metadata?.full_name || metadata?.name || 'User';
     githubUserEmail.value = data.session.user.email || '';
     githubAvatarUrl.value = metadata?.avatar_url || '';
+
+    console.log('GitHub user loaded:', {
+      handle: githubUserHandle.value,
+      name: githubUserName.value,
+      email: githubUserEmail.value
+    });
   } else {
     // 로그인 안 된 상태면 초기화
     isGithubConnected.value = false;
@@ -120,6 +117,27 @@ onMounted(async () => {
     githubUserName.value = '';
     githubUserEmail.value = '';
     githubAvatarUrl.value = '';
+  }
+
+  // GitHub 모달 파라미터 확인 (OAuth 리다이렉트 후)
+  // 세션 로드 후에 체크해야 사용자 정보가 모달에 표시됨
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('github_modal') === 'open') {
+    // OAuth 완료 직후임을 표시
+    justAuthenticated.value = true;
+    showGithubModal.value = true;
+
+    console.log('OAuth callback detected - reopening modal with user info');
+
+    // 3초 후 "방금 인증됨" 플래그 제거
+    setTimeout(() => {
+      justAuthenticated.value = false;
+    }, 3000);
+
+    // URL 정리 (파라미터 제거)
+    urlParams.delete('github_modal');
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+    window.history.replaceState({}, '', newUrl);
   }
 
   // 3. Auth 상태 변경 리스너 (로그인/로그아웃 실시간 감지)
@@ -593,6 +611,15 @@ const handleCreate = async () => {
             </div>
 
             <div v-else class="github-connected-area">
+              <!-- 인증 완료 알림 -->
+              <div v-if="justAuthenticated" class="auth-success-banner">
+                <div class="success-icon">✓</div>
+                <div class="success-content">
+                  <h3>GitHub Connected Successfully!</h3>
+                  <p>You can now create Work Projects</p>
+                </div>
+              </div>
+
               <div class="connected-profile">
                 <img v-if="githubAvatarUrl" :src="githubAvatarUrl" alt="GitHub Avatar" class="profile-avatar" />
                 <div class="profile-info">
@@ -1397,6 +1424,73 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+/* 인증 완료 배너 */
+.auth-success-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.15), rgba(34, 197, 94, 0.1));
+  border: 2px solid #4ade80;
+  padding: 20px;
+  border-radius: 12px;
+  animation: successSlideIn 0.4s ease;
+}
+
+@keyframes successSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-success-banner .success-icon {
+  width: 48px;
+  height: 48px;
+  background: #4ade80;
+  color: #050505;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  animation: checkmark 0.6s ease;
+}
+
+@keyframes checkmark {
+  0% {
+    transform: scale(0) rotate(-45deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(10deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.auth-success-banner .success-content {
+  flex: 1;
+}
+
+.auth-success-banner .success-content h3 {
+  margin: 0 0 4px 0;
+  color: #4ade80;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.auth-success-banner .success-content p {
+  margin: 0;
+  color: #aaa;
+  font-size: 0.9rem;
 }
 
 .connected-profile {
