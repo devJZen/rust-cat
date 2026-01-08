@@ -186,19 +186,7 @@ const toggleGithubConnection = async (fromModal = false) => {
       console.error('Logout failed:', err);
     }
   } else {
-    // 로컬 환경 체크
-    const isLocalhost = window.location.hostname === 'localhost' ||
-                       window.location.hostname === '127.0.0.1';
-
-    if (isLocalhost) {
-      // 로컬에서는 웨이팅리스트로 리다이렉트
-      console.log('Local environment detected. Redirecting to waitlist...');
-      showGithubModal.value = false; // 모달 닫기
-      emit('show-waitlist');
-      return;
-    }
-
-    // 프로덕션에서는 GitHub OAuth 로그인
+    // GitHub OAuth 로그인 (로컬/프로덕션 모두 동작)
     try {
       await loginWithGithub(fromModal); // 모달에서 호출되면 true 전달
     } catch (err) {

@@ -136,11 +136,20 @@ onMounted(async () => {
 
   // OAuth 성공 처리 (access_token이 URL hash에 있는 경우)
   if (accessToken) {
-    console.log('OAuth success detected, redirecting to waitlist');
+    console.log('OAuth success detected');
 
-    // App 모드로 전환 후 웨이팅리스트로 즉시 리다이렉트
+    // App 모드로 전환
     isAppMode.value = true;
-    router.replace('/waitlist');
+
+    // URL에서 OAuth 파라미터 제거 (깔끔한 URL 유지)
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    // OAuth가 완료되었으므로 URL의 파라미터를 확인하여 원래 페이지로 이동
+    const returnTo = urlParams.get('return_to');
+    if (returnTo) {
+      router.replace(returnTo);
+    }
+    // 파라미터가 없으면 현재 페이지 유지
     return;
   }
 
