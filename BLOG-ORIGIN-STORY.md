@@ -218,13 +218,10 @@ We started by breaking GitHub's contribution graph. Now we're building something
 - Program ID: `FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW`
 - Explorer: [View on Solana Explorer](https://explorer.solana.com/address/FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW?cluster=devnet)
 
-**GitHub Repository:**
-- Smart Contract: [garden_sol/programs](https://github.com/your-username/rust-cat/tree/main/programs)
-- Frontend: [garden_sol/frontend](https://github.com/your-username/rust-cat/tree/main/frontend)
-
-**Date Manipulation Research:**
-- Original Tool: [Coming Soon]
-- Technical Writeup: [Coming Soon]
+**Resources:**
+- GitHub Commit Manipulation Tool: [devJZen/git-log-hack](https://github.com/devJZen/git-log-hack)
+- Twitter Thread: [@devJZen](https://x.com/devJZen/status/2006156367623774671)
+- Deployed Smart Contract: [Solana Explorer](https://explorer.solana.com/address/FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW?cluster=devnet)
 
 ---
 

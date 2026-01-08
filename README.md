@@ -12,9 +12,9 @@ Here is a comprehensive `README.md` file tailored to the project we have built t
 > [https://x.com/devJZen/status/2006156367623774671?s=20
 > ](repository)
 
-# Demo video
+# 🎥 Demo Video
 
-Add here
+> **Note:** Demo video will be uploaded during hackathon submission. Current working build is deployed on devnet with full on-chain verification.
 
 ## 🌟 Key Features
 
@@ -170,15 +170,10 @@ A deep dive into the discovery that sparked this project - how GitHub's contribu
 
 ## 📚 Documentation
 
-### Quick Reference
+### Technical Implementation
 
-- **[QUICKSTART.md](./QUICKSTART.md)** - Get started quickly with prioritized TODO list and next steps
-- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Detailed technical implementation of security features and Treasury system
-
-### Database & Deployment
-
-- **[supabase-schema.sql](./supabase-schema.sql)** - Database schema and Row Level Security policies
-- **[supabase-update-policies.sql](./supabase-update-policies.sql)** - Security policy updates (addresses "policy already exists" errors)
+- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Comprehensive technical documentation covering security features, Treasury system, and architecture decisions
+- **[BLOG-ORIGIN-STORY.md](./BLOG-ORIGIN-STORY.md)** - The story behind Garden SOL and why blockchain is essential for accountability systems
 
 ### Deployed Program
 

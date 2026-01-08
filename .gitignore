@@ -8,6 +8,8 @@ test-ledger
 supabase-schema.sql
 supabase-update-policies.sql
 supabase-add-payment-tx.sql
+supabase-schema-SECURE.sql
+SUPABASE_GITHUB_AUTH.md
 
 # Node
 node_modules
@@ -56,3 +58,13 @@ test-ledger/
 # Project-specific
 TODO.md
 SUPABASE_GITHUB_AUTH.md
+
+# Security & Internal Docs (Keep private)
+SECURITY-DEFENSE.md
+DEPLOYMENT-GUIDE.md
+supabase-schema-SECURE.sql
+*-SECURE.*
+*.backup
+
+# Development notes
+QUICKSTART.md
