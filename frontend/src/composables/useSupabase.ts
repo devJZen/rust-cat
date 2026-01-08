@@ -35,21 +35,30 @@ export function useSupabase() {
 
   // 깃허브 로그인 함수
   const loginWithGithub = async (returnToModal = false) => {
-    // redirectTo를 현재 페이지로 설정 (인증 후 현재 페이지로 돌아옴)
-    const origin = window.location.origin;
-    let redirectTo = window.location.href;
+    try {
+      // redirectTo를 현재 페이지로 설정 (인증 후 현재 페이지로 돌아옴)
+      const origin = window.location.origin;
+      let redirectTo = window.location.href;
 
-    // 모달로 돌아가야 하는 경우 /create 경로에 파라미터 추가
-    if (returnToModal) {
-      redirectTo = `${origin}/create?github_modal=open`;
-    }
-
-    await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: redirectTo
+      // 모달로 돌아가야 하는 경우 /create 경로에 파라미터 추가
+      if (returnToModal) {
+        redirectTo = `${origin}/create?github_modal=open`;
       }
-    })
+
+      console.log('Initiating GitHub OAuth redirect to:', redirectTo);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: redirectTo
+        }
+      });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error initiating GitHub OAuth:', err);
+      throw err;
+    }
   }
 
   // 프로젝트 생성

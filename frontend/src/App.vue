@@ -120,36 +120,40 @@ onMounted(async () => {
   const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
   const accessToken = hashParams.get('access_token');
 
-  // OAuth 에러 처리 (GitHub 인증 거부/실패 등)
-  if (error) {
-    console.log('OAuth error detected:', error, errorDescription);
-
-    if (error === 'access_denied') {
-      console.log('GitHub authentication was cancelled by user');
-    }
-
-    // App 모드로 전환 후 웨이팅리스트로 리다이렉트
-    isAppMode.value = true;
-    router.replace('/waitlist');
-    return;
-  }
-
-  // OAuth 성공 처리 (access_token이 URL hash에 있는 경우)
+      // OAuth 에러 처리 (GitHub 인증 거부/실패 등)
+      // 사용자의 요청으로 에러 처리 로직을 제거함 (웨이팅리스트 리다이렉트 방지)
+      /*
+      if (error) {
+        console.group('🔐 OAuth Error Details');
+        console.error('Error:', error);
+        console.error('Description:', errorDescription);
+        console.groupEnd();
+    
+        if (error === 'access_denied') {
+          console.log('GitHub authentication was cancelled by user');
+        }
+    
+        // App 모드로 전환하여 현재 페이지 상태 유지
+        isAppMode.value = true;
+        
+        // 에러 발생 알림 (디버깅용)
+        alert(`GitHub Login Failed\nError: ${error}\nDescription: ${errorDescription || 'Check console for details'}`);
+        
+        // 웨이팅리스트 리다이렉트 제거
+        // router.replace('/waitlist');
+        return;
+      }
+      */  // OAuth 성공 처리 (access_token이 URL hash에 있는 경우)
   if (accessToken) {
-    console.log('OAuth success detected');
+    console.log('OAuth success detected - staying on current page');
 
     // App 모드로 전환
     isAppMode.value = true;
 
-    // URL에서 OAuth 파라미터 제거 (깔끔한 URL 유지)
-    window.history.replaceState({}, document.title, window.location.pathname);
+    // URL에서 OAuth hash만 제거, query params는 유지 (github_modal=open 등)
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
 
-    // OAuth가 완료되었으므로 URL의 파라미터를 확인하여 원래 페이지로 이동
-    const returnTo = urlParams.get('return_to');
-    if (returnTo) {
-      router.replace(returnTo);
-    }
-    // 파라미터가 없으면 현재 페이지 유지
+    // 현재 페이지 유지 - CreateProject.vue의 onMounted가 github_modal 파라미터를 감지
     return;
   }
 
