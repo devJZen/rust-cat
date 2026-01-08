@@ -12,6 +12,16 @@ interface Project {
   totalTasks: number;
   createdAt: number;
   payment_tx?: string; // 0.1 SOL 결제 트랜잭션 해시
+  creator_wallet?: string;
+  admins?: string[];
+  github_repo?: string;
+}
+
+interface Milestone {
+  id: number;
+  name: string;
+  branch: string;
+  completed: boolean;
 }
 
 // --- Props & Emits ---
@@ -45,6 +55,17 @@ interface FundingTransaction {
 
 const fundingHistory = ref<FundingTransaction[]>([]);
 const loadingHistory = ref(false);
+
+// GitHub & Milestones
+const connectedWallet = ref('');
+const isAdmin = ref(false);
+const githubRepo = ref('');
+const editingRepo = ref(false);
+const savingRepo = ref(false);
+const milestones = ref<Milestone[]>([]);
+const selectedMilestone = ref<Milestone | null>(null);
+const showMilestoneModal = ref(false);
+const copiedCommand = ref(false);
 
 // --- Computed ---
 const progressPercent = computed(() => {
@@ -83,6 +104,14 @@ const formatTimestamp = (timestamp: number) => {
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text);
   alert('Copied to clipboard!');
+};
+
+const copyGitCommand = async (text: string) => {
+  await navigator.clipboard.writeText(text);
+  copiedCommand.value = true;
+  setTimeout(() => {
+    copiedCommand.value = false;
+  }, 2000);
 };
 
 const shortAddress = (addr: string) => {
@@ -250,9 +279,74 @@ const handleFundTreasury = async () => {
   }
 };
 
-onMounted(() => {
+// Initialize milestones
+const initializeMilestones = () => {
+  const totalMilestones = props.project.totalTasks || 100;
+  milestones.value = Array.from({ length: totalMilestones }, (_, i) => ({
+    id: i,
+    name: `Milestone ${String(i).padStart(3, '0')}`,
+    branch: `milestone-${String(i).padStart(3, '0')}`,
+    completed: i === 0 || i < props.project.tasksCompleted // milestone-000 is always completed (init)
+  }));
+};
+
+const openMilestone = (milestone: Milestone) => {
+  selectedMilestone.value = milestone;
+  showMilestoneModal.value = true;
+};
+
+const getGitCommands = (milestone: Milestone) => {
+  const repo = githubRepo.value || 'your-repo-url';
+  return `# Create and switch to milestone branch
+git checkout -b ${milestone.branch}
+
+# Make your changes, then commit
+git add .
+git commit -m "${milestone.name}: Initial implementation"
+
+# Push to remote
+git push origin ${milestone.branch}
+
+# Create pull request
+gh pr create --title "${milestone.name}" --body "Implementation for ${milestone.name}"`;
+};
+
+const saveGithubRepo = () => {
+  savingRepo.value = true;
+  // TODO: Save to Supabase
+  setTimeout(() => {
+    savingRepo.value = false;
+    editingRepo.value = false;
+    alert('GitHub repository saved!');
+  }, 1000);
+};
+
+onMounted(async () => {
   fetchPDABalance();
   fetchFundingHistory();
+  initializeMilestones();
+
+  // Get connected wallet
+  try {
+    // @ts-expect-error - Phantom wallet global
+    if (window.solana && window.solana.isConnected) {
+      // @ts-expect-error - Phantom wallet API
+      const publicKey = window.solana.publicKey;
+      if (publicKey) {
+        connectedWallet.value = publicKey.toString();
+
+        // Check if user is admin
+        if (props.project.admins) {
+          isAdmin.value = props.project.admins.includes(connectedWallet.value);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to get wallet:', err);
+  }
+
+  // Load GitHub repo
+  githubRepo.value = props.project.github_repo || '';
 });
 </script>
 
@@ -381,15 +475,61 @@ onMounted(() => {
                 </div>
               </div>
 
-              <!-- Pixel Grid Placeholder -->
-              <div class="pixel-grid-preview">
-                <div class="pixel-grid">
+              <!-- GitHub Repository (Admin Only) -->
+              <div v-if="isAdmin" class="github-repo-section">
+                <div class="github-header">
+                  <h4>🔗 GitHub Repository</h4>
+                  <button
+                    v-if="!editingRepo"
+                    class="btn-edit"
+                    @click="editingRepo = true"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div v-if="editingRepo" class="github-edit">
+                  <input
+                    v-model="githubRepo"
+                    type="text"
+                    placeholder="https://github.com/username/repository"
+                    class="github-input"
+                  />
+                  <div class="github-actions">
+                    <button
+                      class="btn-save"
+                      @click="saveGithubRepo"
+                      :disabled="savingRepo"
+                    >
+                      {{ savingRepo ? 'Saving...' : 'Save' }}
+                    </button>
+                    <button
+                      class="btn-cancel-edit"
+                      @click="editingRepo = false; githubRepo = project.github_repo || ''"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="github-display">
+                  <code v-if="githubRepo">{{ githubRepo }}</code>
+                  <span v-else class="empty-repo">No repository set</span>
+                </div>
+              </div>
+
+              <!-- Milestone Grid -->
+              <div class="milestone-grid-section">
+                <h4>🎯 Milestones (Click to View Commands)</h4>
+                <div class="milestone-grid">
                   <div
-                    v-for="i in 100"
-                    :key="i"
-                    class="pixel"
-                    :class="{ active: i <= project.tasksCompleted }"
-                  ></div>
+                    v-for="milestone in milestones"
+                    :key="milestone.id"
+                    class="milestone-item"
+                    :class="{ completed: milestone.completed, init: milestone.id === 0 }"
+                    @click="openMilestone(milestone)"
+                  >
+                    <div class="milestone-number">{{ String(milestone.id).padStart(3, '0') }}</div>
+                    <div v-if="milestone.completed" class="milestone-check">✓</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -522,6 +662,64 @@ onMounted(() => {
               >
                 <span v-if="fundingInProgress">Funding...</span>
                 <span v-else>Fund Treasury</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Milestone Commands Modal -->
+      <div v-if="showMilestoneModal && selectedMilestone" class="fund-modal-overlay" @click.self="showMilestoneModal = false">
+        <div class="milestone-modal">
+          <div class="fund-modal-header">
+            <div>
+              <h3>{{ selectedMilestone.name }}</h3>
+              <p class="milestone-subtitle">Branch: <code>{{ selectedMilestone.branch }}</code></p>
+            </div>
+            <button class="close-btn" @click="showMilestoneModal = false">×</button>
+          </div>
+
+          <div class="fund-modal-content">
+            <div class="milestone-status">
+              <div class="status-badge" :class="{ completed: selectedMilestone.completed }">
+                {{ selectedMilestone.completed ? '✓ Completed' : '⏳ Pending' }}
+              </div>
+            </div>
+
+            <p class="milestone-description">
+              Use these git commands to create and work on this milestone branch.
+            </p>
+
+            <div class="git-commands-section">
+              <div class="commands-header">
+                <span>Git Commands</span>
+                <button
+                  class="btn-copy-command"
+                  @click="copyGitCommand(getGitCommands(selectedMilestone))"
+                >
+                  {{ copiedCommand ? '✓ Copied!' : '📋 Copy All' }}
+                </button>
+              </div>
+              <pre class="git-commands"><code>{{ getGitCommands(selectedMilestone) }}</code></pre>
+            </div>
+
+            <div class="milestone-info">
+              <div class="info-item">
+                <span class="info-icon">🔖</span>
+                <span class="info-text">Branch name: <code>{{ selectedMilestone.branch }}</code></span>
+              </div>
+              <div class="info-item">
+                <span class="info-icon">📁</span>
+                <span class="info-text">Repository: <code>{{ githubRepo || 'Not set' }}</code></span>
+              </div>
+            </div>
+
+            <div class="milestone-actions">
+              <button
+                class="btn-close-milestone"
+                @click="showMilestoneModal = false"
+              >
+                Close
               </button>
             </div>
           </div>
@@ -1397,5 +1595,405 @@ onMounted(() => {
 .ticker-link:hover {
   background: rgba(74, 222, 128, 0.1);
   border-color: #4ade80;
+}
+
+/* GitHub Repository Section */
+.github-repo-section {
+  margin-top: 24px;
+  padding: 20px;
+  background: rgba(74, 222, 128, 0.03);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 12px;
+}
+
+.github-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.github-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #aaa;
+}
+
+.btn-edit {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-edit:hover {
+  border-color: #4ade80;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.05);
+}
+
+.github-display {
+  padding: 12px;
+  background: #0a0a0a;
+  border-radius: 6px;
+  border: 1px solid #222;
+}
+
+.github-display code {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #4ade80;
+  word-break: break-all;
+}
+
+.empty-repo {
+  color: #666;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.github-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.github-input {
+  padding: 12px;
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.9rem;
+  font-family: monospace;
+  transition: all 0.2s;
+}
+
+.github-input:focus {
+  outline: none;
+  border-color: #4ade80;
+}
+
+.github-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-save {
+  flex: 1;
+  padding: 10px;
+  background: #4ade80;
+  color: #050505;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: #22c55e;
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.3);
+}
+
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-cancel-edit {
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-edit:hover {
+  border-color: #555;
+  color: white;
+}
+
+/* Milestone Grid Section */
+.milestone-grid-section {
+  margin-top: 24px;
+  padding: 20px;
+  background: #0a0a0a;
+  border-radius: 12px;
+  border: 1px solid #222;
+}
+
+.milestone-grid-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 0.95rem;
+  color: #aaa;
+}
+
+.milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 8px;
+  max-width: 100%;
+}
+
+.milestone-item {
+  aspect-ratio: 1;
+  background: #1a1a1a;
+  border: 1px solid #222;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.milestone-item:hover {
+  border-color: #4ade80;
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.2);
+}
+
+.milestone-item.completed {
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.2), rgba(34, 197, 94, 0.2));
+  border-color: rgba(74, 222, 128, 0.5);
+}
+
+.milestone-item.completed:hover {
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.3), rgba(34, 197, 94, 0.3));
+}
+
+.milestone-item.init {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  border-color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+}
+
+.milestone-item.init:hover {
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+}
+
+.milestone-number {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  font-family: monospace;
+}
+
+.milestone-item.completed .milestone-number {
+  color: #4ade80;
+}
+
+.milestone-item.init .milestone-number {
+  color: #050505;
+  font-weight: 700;
+}
+
+.milestone-check {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 0.6rem;
+  color: #4ade80;
+}
+
+.milestone-item.init .milestone-check {
+  color: #050505;
+}
+
+/* Milestone Modal */
+.milestone-modal {
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 700px;
+  animation: slideUp 0.3s ease;
+  overflow: hidden;
+}
+
+.milestone-subtitle {
+  margin: 4px 0 0 0;
+  color: #888;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.milestone-subtitle code {
+  color: #4ade80;
+  font-family: monospace;
+  background: #111;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.milestone-status {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.status-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.status-badge.completed {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+.milestone-description {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.git-commands-section {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.commands-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #222;
+}
+
+.commands-header span {
+  color: #aaa;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.btn-copy-command {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-copy-command:hover {
+  border-color: #4ade80;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.05);
+}
+
+.git-commands {
+  background: #0a0a0a;
+  border: 1px solid #222;
+  border-radius: 6px;
+  padding: 16px;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.git-commands code {
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #4ade80;
+  white-space: pre;
+}
+
+.milestone-info {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-icon {
+  font-size: 1.2rem;
+}
+
+.info-text {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.info-text code {
+  color: #4ade80;
+  background: #0a0a0a;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.milestone-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-close-milestone {
+  padding: 12px 32px;
+  background: transparent;
+  border: 1px solid #333;
+  color: #888;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-close-milestone:hover {
+  border-color: #555;
+  color: white;
+  background: #111;
+}
+
+/* Responsive for milestone grid */
+@media (max-width: 768px) {
+  .milestone-grid {
+    grid-template-columns: repeat(8, 1fr);
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .milestone-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+  }
 }
 </style>
