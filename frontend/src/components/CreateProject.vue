@@ -75,7 +75,8 @@ const canSelectWorkProject = computed(() => isGithubConnected.value);
 // 지갑 주소 가져오기
 onMounted(async () => {
   // 0. 로컬 환경 감지
-  isLocalhost.value = false;
+  isLocalhost.value = window.location.hostname === 'localhost' ||
+                      window.location.hostname === '127.0.0.1';
 
   // 1. Phantom 지갑 연결 확인
   try {
@@ -141,7 +142,7 @@ onMounted(async () => {
 });
 
 // --- Emits ---
-const emit = defineEmits(['project-created']);
+const emit = defineEmits(['project-created', 'show-waitlist']);
 
 // --- Composables ---
 const { createProject, loginWithGithub, supabase } = useSupabase();
@@ -358,6 +359,7 @@ const handleCreate = async () => {
       pda: pdaAddress,
       deadline: projectDeadline.value || undefined,
       payment_tx: fundTxHash, // Treasury funding 트랜잭션 해시 저장
+      // integrations는 나중에 구현 (현재는 waitlist로 리디렉션)
       balance: 0.1 // 초기 treasury 잔액
     });
 
@@ -561,7 +563,8 @@ const handleCreate = async () => {
               <div class="notice-icon">🔧</div>
               <div class="notice-content">
                 <h3>Local Development Mode</h3>
-                <p>GitHub OAuth works in local environment. Make sure your Supabase redirect URLs are configured for localhost:5173</p>
+                <p>GitHub OAuth is disabled in local environment to prevent redirect issues.</p>
+                <p class="notice-action">Join the waitlist to get notified when authentication is live.</p>
               </div>
             </div>
 
