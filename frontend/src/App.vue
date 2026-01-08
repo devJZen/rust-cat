@@ -112,27 +112,39 @@ onMounted(async () => {
   window.addEventListener('wheel', handleWheel);
   window.addEventListener('keydown', handleKeydown);
 
-  // OAuth 에러 파라미터 처리 (GitHub 인증 거부/실패 등)
+  // OAuth 파라미터 확인
   const urlParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.slice(1));
 
   const error = urlParams.get('error') || hashParams.get('error');
   const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+  const accessToken = hashParams.get('access_token');
 
+  // OAuth 에러 처리 (GitHub 인증 거부/실패 등)
   if (error) {
     console.log('OAuth error detected:', error, errorDescription);
 
-    // 에러 메시지 표시
     if (error === 'access_denied') {
       console.log('GitHub authentication was cancelled by user');
     }
 
-    // 웨이팅리스트로 리다이렉트
+    // App 모드로 전환 후 웨이팅리스트로 리다이렉트
+    isAppMode.value = true;
     router.replace('/waitlist');
-    return; // 이후 코드 실행 방지
+    return;
   }
 
-  // Phantom 지갑 자동 연결 확인 (비동기 처리)
+  // OAuth 성공 처리 (access_token이 URL hash에 있는 경우)
+  if (accessToken) {
+    console.log('OAuth success detected, redirecting to waitlist');
+
+    // App 모드로 전환 후 웨이팅리스트로 즉시 리다이렉트
+    isAppMode.value = true;
+    router.replace('/waitlist');
+    return;
+  }
+
+  // 일반적인 페이지 로드: Phantom 지갑 자동 연결 확인 (비동기 처리)
   // @ts-expect-error - Phantom wallet global
   if (window.solana) {
     try {
