@@ -615,7 +615,7 @@ const handleCreate = async () => {
               </div>
 
               <div class="modal-actions">
-                <button class="btn-modal-secondary" @click="toggleGithubConnection">
+                <button class="btn-modal-secondary" @click="toggleGithubConnection(false)">
                   Disconnect
                 </button>
                 <button class="btn-modal-primary" @click="showGithubModal = false; projectType = 'project'">

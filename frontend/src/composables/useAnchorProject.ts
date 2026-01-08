@@ -6,8 +6,8 @@ import * as anchor from '@coral-xyz/anchor';
 // Mock 모드 (프로그램이 배포되지 않았을 때)
 const MOCK_MODE = false; // 실제 배포된 프로그램 사용
 
-// 실제 배포된 프로그램 IDL (from target/idl/garden_sol.json)
-import IDL_JSON from '../../../target/idl/garden_sol.json';
+// 실제 배포된 프로그램 IDL
+import IDL_JSON from '../idl/garden_sol.json';
 const IDL = IDL_JSON;
 
 export function useAnchorProject() {
