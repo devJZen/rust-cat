@@ -10,6 +10,8 @@ supabase-update-policies.sql
 supabase-add-payment-tx.sql
 supabase-schema-SECURE.sql
 SUPABASE_GITHUB_AUTH.md
+frontend/SETUP-DB.md
+frontend/supabase-schema-user-profiles.sql
 
 # Node
 node_modules

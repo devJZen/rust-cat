@@ -35,6 +35,22 @@ export interface Project {
   };
 }
 
+export interface UserProfile {
+  id?: string;
+  wallet_address: string;
+  github_connected: boolean;
+  github_handle?: string;
+  github_user_id?: string;
+  github_email?: string;
+  github_avatar_url?: string;
+  github_oauth_provider_token?: string;
+  jira_connected: boolean;
+  jira_email?: string;
+  jira_domain?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export function useSupabase() {
   // 웨이팅리스트 등록 함수
   const addToWaitlist = async (email: string) => {
@@ -110,6 +126,79 @@ export function useSupabase() {
     return { error }
   }
 
+  // ===== User Profile 관리 =====
+
+  // 사용자 프로필 조회
+  const getUserProfile = async (walletAddress: string) => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('wallet_address', walletAddress)
+      .single()
+    return { data, error }
+  }
+
+  // 사용자 프로필 생성 또는 업데이트
+  const upsertUserProfile = async (profile: UserProfile) => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .upsert(profile, {
+        onConflict: 'wallet_address',
+        ignoreDuplicates: false
+      })
+      .select()
+      .single()
+    return { data, error }
+  }
+
+  // GitHub 연동 정보 업데이트
+  const updateGithubConnection = async (
+    walletAddress: string,
+    githubData: {
+      github_connected: boolean;
+      github_handle?: string;
+      github_user_id?: string;
+      github_email?: string;
+      github_avatar_url?: string;
+    }
+  ) => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .upsert({
+        wallet_address: walletAddress,
+        ...githubData,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'wallet_address'
+      })
+      .select()
+      .single()
+    return { data, error }
+  }
+
+  // Jira 연동 정보 업데이트
+  const updateJiraConnection = async (
+    walletAddress: string,
+    jiraData: {
+      jira_connected: boolean;
+      jira_email?: string;
+      jira_domain?: string;
+    }
+  ) => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .upsert({
+        wallet_address: walletAddress,
+        ...jiraData,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'wallet_address'
+      })
+      .select()
+      .single()
+    return { data, error }
+  }
+
   return {
     supabase,
     addToWaitlist,
@@ -117,6 +206,10 @@ export function useSupabase() {
     createProject,
     getMyProjects,
     getAllProjects,
-    deleteProject
+    deleteProject,
+    getUserProfile,
+    upsertUserProfile,
+    updateGithubConnection,
+    updateJiraConnection
   }
 }

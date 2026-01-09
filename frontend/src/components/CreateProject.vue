@@ -96,7 +96,7 @@ onMounted(async () => {
 
   // 2. [수정됨] Supabase 세션 확인 (이미 로그인된 경우 자동 연동)
   // 먼저 Auth 상태 변경 리스너를 설정하여 OAuth 콜백을 한 번만 처리
-  supabase.auth.onAuthStateChange((event, session) => {
+  supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('Auth state changed:', event);
 
     if (event === 'SIGNED_IN' && session?.user) {
@@ -112,12 +112,45 @@ onMounted(async () => {
         name: githubUserName.value,
         email: githubUserEmail.value
       });
+
+      // DB에 GitHub 연동 정보 저장
+      if (connectedWallet.value) {
+        try {
+          const { data, error } = await updateGithubConnection(connectedWallet.value, {
+            github_connected: true,
+            github_handle: githubUserHandle.value,
+            github_user_id: session.user.id,
+            github_email: githubUserEmail.value,
+            github_avatar_url: githubAvatarUrl.value
+          });
+
+          if (error) {
+            console.error('Failed to save GitHub connection to DB:', error);
+          } else {
+            console.log('✅ GitHub connection saved to DB:', data);
+          }
+        } catch (err) {
+          console.error('Error saving GitHub connection:', err);
+        }
+      }
     } else if (event === 'SIGNED_OUT') {
       isGithubConnected.value = false;
       githubUserHandle.value = '';
       githubUserName.value = '';
       githubUserEmail.value = '';
       githubAvatarUrl.value = '';
+
+      // DB에서 GitHub 연동 해제
+      if (connectedWallet.value) {
+        try {
+          await updateGithubConnection(connectedWallet.value, {
+            github_connected: false
+          });
+          console.log('✅ GitHub disconnection saved to DB');
+        } catch (err) {
+          console.error('Error saving GitHub disconnection:', err);
+        }
+      }
     }
   });
 
@@ -194,7 +227,7 @@ onMounted(async () => {
 const emit = defineEmits(['project-created', 'show-waitlist']);
 
 // --- Composables ---
-const { createProject, loginWithGithub, supabase } = useSupabase();
+const { createProject, loginWithGithub, supabase, updateGithubConnection, getUserProfile } = useSupabase();
 const { createProjectOnChain, fundTreasury } = useAnchorProject();
 
 // --- Handlers ---
