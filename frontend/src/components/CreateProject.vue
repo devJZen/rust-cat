@@ -22,6 +22,7 @@ const paymentTxHash = ref(''); // 결제 트랜잭션 해시
 const showGithubModal = ref(false); // GitHub 연동 모달
 const isLocalhost = ref(false); // 로컬 환경 여부
 const justAuthenticated = ref(false); // OAuth 완료 직후 여부
+const githubLoginError = ref(''); // GitHub 로그인 에러
 
 // 프로젝트 타입 옵션
 const projectTypes = [
@@ -94,6 +95,35 @@ onMounted(async () => {
   }
 
   // 2. [수정됨] Supabase 세션 확인 (이미 로그인된 경우 자동 연동)
+  // 먼저 Auth 상태 변경 리스너를 설정하여 OAuth 콜백을 한 번만 처리
+  supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Auth state changed:', event);
+
+    if (event === 'SIGNED_IN' && session?.user) {
+      isGithubConnected.value = true;
+      const metadata = session.user.user_metadata;
+      githubUserHandle.value = metadata?.user_name || metadata?.preferred_username || '';
+      githubUserName.value = metadata?.full_name || metadata?.name || 'User';
+      githubUserEmail.value = session.user.email || '';
+      githubAvatarUrl.value = metadata?.avatar_url || '';
+
+      console.log('GitHub user signed in:', {
+        handle: githubUserHandle.value,
+        name: githubUserName.value,
+        email: githubUserEmail.value
+      });
+    } else if (event === 'SIGNED_OUT') {
+      isGithubConnected.value = false;
+      githubUserHandle.value = '';
+      githubUserName.value = '';
+      githubUserEmail.value = '';
+      githubAvatarUrl.value = '';
+    }
+  });
+
+  // 약간의 지연을 두고 세션 확인 (onAuthStateChange가 OAuth 콜백을 먼저 처리하도록)
+  await new Promise(resolve => setTimeout(resolve, 100));
+
   const { data } = await supabase.auth.getSession();
 
   if (data.session?.user) {
@@ -105,7 +135,7 @@ onMounted(async () => {
     githubUserEmail.value = data.session.user.email || '';
     githubAvatarUrl.value = metadata?.avatar_url || '';
 
-    console.log('GitHub user loaded:', {
+    console.log('GitHub user loaded from session:', {
       handle: githubUserHandle.value,
       name: githubUserName.value,
       email: githubUserEmail.value
@@ -122,7 +152,26 @@ onMounted(async () => {
   // GitHub 모달 파라미터 확인 (OAuth 리다이렉트 후)
   // 세션 로드 후에 체크해야 사용자 정보가 모달에 표시됨
   const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('github_modal') === 'open') {
+
+  // OAuth 에러 확인
+  const oauthError = urlParams.get('error');
+  const oauthErrorDesc = urlParams.get('error_description');
+
+  if (oauthError) {
+    // OAuth 에러 발생 시
+    console.error('OAuth Error:', oauthError, oauthErrorDesc);
+    githubLoginError.value = oauthErrorDesc
+      ? decodeURIComponent(oauthErrorDesc.replace(/\+/g, ' '))
+      : 'GitHub authentication failed';
+    showGithubModal.value = true;
+
+    // URL에서 에러 파라미터 제거
+    urlParams.delete('error');
+    urlParams.delete('error_description');
+    urlParams.delete('error_code');
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+    window.history.replaceState({}, '', newUrl);
+  } else if (urlParams.get('github_modal') === 'open') {
     // OAuth 완료 직후임을 표시
     justAuthenticated.value = true;
     showGithubModal.value = true;
@@ -139,24 +188,6 @@ onMounted(async () => {
     const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
     window.history.replaceState({}, '', newUrl);
   }
-
-  // 3. Auth 상태 변경 리스너 (로그인/로그아웃 실시간 감지)
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session?.user) {
-      isGithubConnected.value = true;
-      const metadata = session.user.user_metadata;
-      githubUserHandle.value = metadata?.user_name || metadata?.preferred_username || '';
-      githubUserName.value = metadata?.full_name || metadata?.name || 'User';
-      githubUserEmail.value = session.user.email || '';
-      githubAvatarUrl.value = metadata?.avatar_url || '';
-    } else if (event === 'SIGNED_OUT') {
-      isGithubConnected.value = false;
-      githubUserHandle.value = '';
-      githubUserName.value = '';
-      githubUserEmail.value = '';
-      githubAvatarUrl.value = '';
-    }
-  });
 });
 
 // --- Emits ---
@@ -191,6 +222,9 @@ const selectProjectType = (typeId: string) => {
 
 // GitHub 연결 토글 (클릭 한 번으로 연결/해제)
 const toggleGithubConnection = async (fromModal = false) => {
+  // 에러 초기화
+  githubLoginError.value = '';
+
   if (isGithubConnected.value) {
     // 이미 연결되어 있으면 → 연결 해제
     try {
@@ -202,6 +236,7 @@ const toggleGithubConnection = async (fromModal = false) => {
       githubAvatarUrl.value = '';
     } catch (err) {
       console.error('Logout failed:', err);
+      githubLoginError.value = 'Failed to disconnect GitHub account';
     }
   } else {
     // GitHub OAuth 로그인 (로컬/프로덕션 모두 동작)
@@ -209,7 +244,7 @@ const toggleGithubConnection = async (fromModal = false) => {
       await loginWithGithub(fromModal); // 모달에서 호출되면 true 전달
     } catch (err) {
       console.error('GitHub login failed:', err);
-      error.value = 'Failed to login with GitHub';
+      githubLoginError.value = 'GitHub authentication failed. Please contact support if the issue persists.';
     }
   }
 };
@@ -564,17 +599,28 @@ const handleCreate = async () => {
 
     <!-- GitHub 연동 모달 -->
     <Transition name="modal-fade">
-      <div v-if="showGithubModal" class="modal-overlay" @click.self="showGithubModal = false">
+      <div v-if="showGithubModal" class="modal-overlay" @click.self="showGithubModal = false; githubLoginError = ''">
         <div class="modal-content github-modal">
           <div class="modal-header">
             <h2>Connect GitHub</h2>
-            <button class="modal-close" @click="showGithubModal = false">×</button>
+            <button class="modal-close" @click="showGithubModal = false; githubLoginError = ''">×</button>
           </div>
 
           <div class="modal-body">
             <p class="modal-description">
               Work Projects require GitHub integration to track commits, pull requests, and issues automatically.
             </p>
+
+            <!-- GitHub 로그인 에러 카드 -->
+            <div v-if="githubLoginError" class="error-alert-card">
+              <div class="alert-icon">⚠️</div>
+              <div class="alert-content">
+                <h3>Authentication Failed</h3>
+                <p>{{ githubLoginError }}</p>
+                <p class="alert-action">Please contact the administrator if the issue persists.</p>
+              </div>
+              <button class="alert-close" @click="githubLoginError = ''">×</button>
+            </div>
 
             <!-- 로컬 환경 안내 -->
             <div v-if="isLocalhost && !isGithubConnected" class="local-dev-notice">
@@ -633,7 +679,7 @@ const handleCreate = async () => {
                 <button class="btn-modal-secondary" @click="toggleGithubConnection(false)">
                   Disconnect
                 </button>
-                <button class="btn-modal-primary" @click="showGithubModal = false; projectType = 'project'">
+                <button class="btn-modal-primary" @click="showGithubModal = false; projectType = 'project'; githubLoginError = ''">
                   Continue with Work Project
                 </button>
               </div>
@@ -1323,6 +1369,90 @@ label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem;
   line-height: 1.6;
   margin-bottom: 24px;
   font-size: 0.95rem;
+}
+
+/* Error Alert Card */
+.error-alert-card {
+  display: flex;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1));
+  border: 2px solid rgba(239, 68, 68, 0.4);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  position: relative;
+  animation: alertSlideIn 0.3s ease;
+}
+
+@keyframes alertSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-alert-card .alert-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.error-alert-card .alert-content {
+  flex: 1;
+}
+
+.error-alert-card .alert-content h3 {
+  margin: 0 0 8px 0;
+  color: #ef4444;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.error-alert-card .alert-content p {
+  margin: 0 0 8px 0;
+  color: #fca5a5;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.error-alert-card .alert-content p:last-child {
+  margin-bottom: 0;
+}
+
+.error-alert-card .alert-action {
+  color: #dc2626 !important;
+  font-weight: 500;
+  font-size: 0.85rem !important;
+  margin-top: 8px !important;
+}
+
+.error-alert-card .alert-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.error-alert-card .alert-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.1);
 }
 
 .local-dev-notice {

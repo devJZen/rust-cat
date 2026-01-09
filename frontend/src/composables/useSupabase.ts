@@ -4,7 +4,18 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // PKCE 흐름 사용 (더 안전한 OAuth)
+    flowType: 'pkce',
+    // 자동으로 세션 감지 (기본값: true)
+    detectSessionInUrl: true,
+    // 세션 지속성 설정
+    persistSession: true,
+    // 자동 새로고침 활성화
+    autoRefreshToken: true
+  }
+})
 
 export interface Project {
   id?: string;
