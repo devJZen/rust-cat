@@ -73,6 +73,9 @@ const progressPercent = computed(() => {
 });
 
 const explorerUrl = computed(() => {
+  if (!props.project.pda || props.project.pda.length < 32) {
+    return '#'; // PDA가 유효하지 않으면 빈 링크
+  }
   return `https://explorer.solana.com/address/${props.project.pda}?cluster=devnet`;
 });
 
@@ -555,8 +558,13 @@ onMounted(async () => {
               </div>
 
               <div class="pda-address">
-                <code>{{ project.pda }}</code>
-                <button class="btn-copy" @click="copyToClipboard(project.pda)">
+                <code v-if="project.pda && project.pda.length >= 32">{{ project.pda }}</code>
+                <code v-else class="invalid-pda">⚠️ Invalid PDA Address</code>
+                <button
+                  v-if="project.pda && project.pda.length >= 32"
+                  class="btn-copy"
+                  @click="copyToClipboard(project.pda)"
+                >
                   📋
                 </button>
               </div>
@@ -570,11 +578,24 @@ onMounted(async () => {
                   <span class="label">Network:</span>
                   <span class="value">Devnet</span>
                 </div>
+                <div v-if="pdaBalance === 0 && !loading" class="info-row warning-row">
+                  <span class="warning-text">
+                    ⚠️ Account not funded yet. Fund treasury to activate.
+                  </span>
+                </div>
               </div>
 
-              <a :href="explorerUrl" target="_blank" class="btn-explorer">
+              <a
+                v-if="project.pda && project.pda.length >= 32"
+                :href="explorerUrl"
+                target="_blank"
+                class="btn-explorer"
+              >
                 🔍 View on Explorer →
               </a>
+              <div v-else class="btn-explorer btn-disabled">
+                🔍 Explorer unavailable (Invalid address)
+              </div>
             </div>
 
             <!-- Payment Transaction Section -->
@@ -1016,6 +1037,33 @@ onMounted(async () => {
 .btn-explorer:hover {
   background: rgba(74, 222, 128, 0.1);
   border-color: #4ade80;
+}
+
+.btn-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  border-color: #444;
+  color: #666;
+  pointer-events: none;
+}
+
+.invalid-pda {
+  color: #ef4444 !important;
+}
+
+.warning-row {
+  flex-direction: column;
+  align-items: flex-start;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.warning-text {
+  color: #fbbf24;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 /* Progress Card */
