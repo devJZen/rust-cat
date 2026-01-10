@@ -246,7 +246,7 @@ onMounted(async () => {
 const emit = defineEmits(['project-created', 'show-waitlist']);
 
 // --- Composables ---
-const { createProject, loginWithGithub, supabase, updateGithubConnection, getUserProfile } = useSupabase();
+const { createProject, loginWithGithub, supabase, updateGithubConnection, getUserProfile, getMyProjects } = useSupabase();
 const { createProjectOnChain, fundTreasury } = useAnchorProject();
 
 // --- Handlers ---
@@ -417,9 +417,10 @@ const handleCreate = async () => {
   if (!projectName.value) return alert("Please enter a project name");
   if (!connectedWallet.value) return alert("Please connect your wallet first");
 
-  // Work Project 타입인 경우 GitHub 연동 필수
-  if (projectType.value === 'project' && !isGithubConnected.value) {
-    return alert("Please connect your GitHub account to create a Work Project");
+  // Work Project는 현재 비활성화
+  if (projectType.value === 'project') {
+    error.value = 'Work Projects are currently under development. Please select another project type.';
+    return;
   }
 
   loading.value = true;
@@ -432,49 +433,84 @@ const handleCreate = async () => {
   const validMembers = members.value.filter(m => m.length > 30);
 
   try {
-    // 1️⃣ 프로젝트 PDA 생성 (Anchor instruction 호출)
-    console.log('Creating project on-chain...');
-    const githubEnabled = isGithubConnected.value && projectType.value === 'project';
-    const jiraEnabled = false; // 아직 Jira 통합 없음
+    // 0️⃣ 중복 프로젝트 이름 체크
+    console.log('Checking for duplicate project names...');
+    const { data: existingProjects, error: checkError } = await getMyProjects(connectedWallet.value);
 
-    const result = await createProjectOnChain(
-      projectName.value,
-      validAdmins,
-      validMembers,
-      githubEnabled,
-      jiraEnabled
-    );
+    if (checkError) {
+      console.warn('Failed to check existing projects:', checkError);
+      // 에러가 나도 계속 진행 (테이블이 없을 수도 있음)
+    } else if (existingProjects && existingProjects.length > 0) {
+      const duplicateName = existingProjects.find(
+        (p: any) => p.name.toLowerCase() === projectName.value.toLowerCase()
+      );
 
-    const pdaAddress = result.pda;
-    paymentTxHash.value = result.txHash;
-    console.log('✅ Project PDA created!', pdaAddress);
-
-    // 2️⃣ Treasury에 0.1 SOL 입금 (fund_treasury instruction)
-    console.log('Funding treasury with 0.1 SOL...');
-    const fundTxHash = await fundTreasury(pdaAddress, 0.1);
-    console.log('✅ Treasury funded!', fundTxHash);
-
-    // 3️⃣ Supabase에 프로젝트 저장
-    const { data, error: createError } = await createProject({
-      name: projectName.value,
-      type: projectType.value as 'project' | 'betting' | 'savings' | 'fundraising',
-      creator_wallet: connectedWallet.value,
-      admins: validAdmins,
-      members: validMembers,
-      pda: pdaAddress,
-      deadline: projectDeadline.value || undefined,
-      payment_tx: fundTxHash, // Treasury funding 트랜잭션 해시 저장
-      // integrations는 나중에 구현 (현재는 waitlist로 리디렉션)
-      balance: 0.1 // 초기 treasury 잔액
-    });
-
-    if (createError) {
-      throw createError;
+      if (duplicateName) {
+        error.value = `A project named "${projectName.value}" already exists. Please choose a different name.`;
+        loading.value = false;
+        return;
+      }
     }
 
-    console.log('Project created successfully:', data);
-    console.log('PDA Wallet:', pdaAddress);
-    console.log('Payment Transaction:', paymentTxHash.value);
+    // 타임아웃 설정 (60초)
+    const createProjectWithTimeout = async () => {
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Project creation timeout. The transaction is taking too long. Please check Solana Explorer and try again if needed.')), 60000);
+      });
+
+      const createPromise = (async () => {
+        // 1️⃣ 프로젝트 PDA 생성 (Anchor instruction 호출)
+        console.log('Creating project on-chain...');
+        const githubEnabled = isGithubConnected.value && projectType.value === 'project';
+        const jiraEnabled = false; // 아직 Jira 통합 없음
+
+        const result = await createProjectOnChain(
+          projectName.value,
+          validAdmins,
+          validMembers,
+          githubEnabled,
+          jiraEnabled
+        );
+
+        const pdaAddress = result.pda;
+        paymentTxHash.value = result.txHash;
+        console.log('✅ Project PDA created!', pdaAddress);
+
+        // 2️⃣ Treasury에 0.1 SOL 입금 (fund_treasury instruction)
+        console.log('Funding treasury with 0.1 SOL...');
+        const fundTxHash = await fundTreasury(pdaAddress, 0.1);
+        console.log('✅ Treasury funded!', fundTxHash);
+
+        // 3️⃣ Supabase에 프로젝트 저장
+        const { data, error: createError } = await createProject({
+          name: projectName.value,
+          type: projectType.value as 'project' | 'betting' | 'savings' | 'fundraising',
+          creator_wallet: connectedWallet.value,
+          admins: validAdmins,
+          members: validMembers,
+          pda: pdaAddress,
+          deadline: projectDeadline.value || undefined,
+          payment_tx: fundTxHash, // Treasury funding 트랜잭션 해시 저장
+          balance: 0.1 // 초기 treasury 잔액
+        });
+
+        if (createError) {
+          throw createError;
+        }
+
+        console.log('Project created successfully:', data);
+        console.log('PDA Wallet:', pdaAddress);
+        console.log('Payment Transaction:', paymentTxHash.value);
+        return data;
+      })();
+
+      // 타임아웃과 경쟁
+      return await Promise.race([createPromise, timeoutPromise]);
+    };
+
+    // 프로젝트 생성 실행
+    await createProjectWithTimeout();
+
     success.value = true;
 
     // 성공 후 2초 뒤 대시보드로 자동 이동
