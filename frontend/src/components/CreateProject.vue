@@ -259,13 +259,10 @@ const removeField = (arr: string[], idx: number) => {
 const selectProjectType = (typeId: string) => {
   if (loading.value || success.value) return;
 
-  // Work Project 선택 시도
+  // Work Project는 현재 비활성화
   if (typeId === 'project') {
-    if (!isGithubConnected.value) {
-      // GitHub 미연동 → 모달 띄우기
-      showGithubModal.value = true;
-      return;
-    }
+    error.value = 'Work Projects are currently under development. Please select another project type.';
+    return;
   }
 
   // 타입 선택
@@ -548,17 +545,17 @@ const handleCreate = async () => {
               :class="[
                 'type-card',
                 { active: projectType === type.id },
-                { 'needs-github': type.id === 'project' && !isGithubConnected }
+                { 'disabled-type': type.id === 'project' }
               ]"
               @click="selectProjectType(type.id)"
               type="button"
-              :disabled="loading || success"
+              :disabled="loading || success || type.id === 'project'"
             >
               <span class="type-icon">{{ type.icon }}</span>
               <span class="type-label">{{ type.label }}</span>
               <span class="type-description">{{ type.description }}</span>
-              <span v-if="type.id === 'project' && !isGithubConnected" class="github-required-badge">
-                🔒 Connect GitHub First
+              <span v-if="type.id === 'project'" class="dev-badge">
+                🚧 Under Development
               </span>
             </button>
           </div>
@@ -909,11 +906,34 @@ const handleCreate = async () => {
   background: rgba(255, 255, 255, 0.02);
 }
 
+.type-card.disabled-type {
+  opacity: 0.4;
+  border-color: #444;
+  position: relative;
+  cursor: not-allowed;
+}
+
+.type-card.disabled-type:hover {
+  border-color: #444;
+  background: #111;
+}
+
 .github-required-badge {
   font-size: 0.7rem;
   color: #fbbf24;
   background: rgba(251, 191, 36, 0.1);
   border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.dev-badge {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.1);
+  border: 1px solid rgba(156, 163, 175, 0.3);
   padding: 4px 8px;
   border-radius: 4px;
   margin-top: 4px;
