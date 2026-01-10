@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW");
 
 #[program]
 pub mod garden_sol {

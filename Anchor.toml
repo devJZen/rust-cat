@@ -5,10 +5,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-garden_sol = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+garden_sol = "FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW"
 
 [programs.devnet]
-garden_sol = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+garden_sol = "FqyzG8CkTU9Z5twgWr8FmbYmyEbcbM97w3qiV4xnF7YW"
 
 [registry]
 url = "https://api.apr.dev"
