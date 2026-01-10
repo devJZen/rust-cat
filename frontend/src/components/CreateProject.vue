@@ -193,15 +193,24 @@ onMounted(async () => {
   if (oauthError) {
     // OAuth 에러 발생 시
     console.error('OAuth Error:', oauthError, oauthErrorDesc);
-    githubLoginError.value = oauthErrorDesc
-      ? decodeURIComponent(oauthErrorDesc.replace(/\+/g, ' '))
-      : 'GitHub authentication failed';
+
+    // 사용자 친화적 에러 메시지
+    let friendlyError = 'GitHub authentication failed';
+    if (oauthErrorDesc?.includes('exchange external code')) {
+      friendlyError = 'GitHub connection expired. Please try connecting again.';
+    } else if (oauthErrorDesc) {
+      friendlyError = decodeURIComponent(oauthErrorDesc.replace(/\+/g, ' '));
+    }
+
+    githubLoginError.value = friendlyError;
     showGithubModal.value = true;
 
-    // URL에서 에러 파라미터 제거
+    // URL에서 모든 OAuth 관련 파라미터 제거 (code 포함)
     urlParams.delete('error');
     urlParams.delete('error_description');
     urlParams.delete('error_code');
+    urlParams.delete('code'); // OAuth code도 제거
+    urlParams.delete('state'); // state도 제거
     const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
     window.history.replaceState({}, '', newUrl);
   } else if (urlParams.get('github_modal') === 'open') {
@@ -216,8 +225,18 @@ onMounted(async () => {
       justAuthenticated.value = false;
     }, 3000);
 
-    // URL 정리 (파라미터 제거)
+    // URL 정리 (모든 OAuth 파라미터 제거)
     urlParams.delete('github_modal');
+    urlParams.delete('code'); // OAuth code 제거
+    urlParams.delete('state'); // state 제거
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+    window.history.replaceState({}, '', newUrl);
+  }
+
+  // 일반적인 경우에도 OAuth 파라미터가 URL에 남아있으면 제거
+  if (urlParams.has('code') || urlParams.has('state')) {
+    urlParams.delete('code');
+    urlParams.delete('state');
     const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
     window.history.replaceState({}, '', newUrl);
   }
