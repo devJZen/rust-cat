@@ -10,8 +10,7 @@ Here is a comprehensive `README.md` file tailored to the project we have built t
 
 > **Origin Story:** This project was born from discovering that GitHub contribution graphs can be manipulated through commit date spoofing. We realized that genuine accountability requires immutable, on-chain verification - something GitHub's centralized system cannot provide. Garden SOL solves this by anchoring habit tracking to the Solana blockchain, where timestamps are cryptographically guaranteed and cannot be retroactively modified.
 >
-> [https://github.com/devJZen/git-log-hack
-> ](repository)
+> [https://github.com/devJZen/git-log-hack](https://github.com/devJZen/git-log-hack)
 >
 > [https://x.com/devJZen/status/2006156367623774671?s=20
 > ](repository)
@@ -166,6 +165,7 @@ Project wallets are deterministically derived using:
 This ensures each user can create multiple projects with unique names.
 
 ## 📖 Blog & Articles
+
 ![Blog](./SCR-20260110-iimq.png)
 
 **[The GitHub Commit Date Manipulation Project: Why We Built Garden SOL](./BLOG-ORIGIN-STORY.md)**
