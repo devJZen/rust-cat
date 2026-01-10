@@ -259,9 +259,9 @@ const removeField = (arr: string[], idx: number) => {
 const selectProjectType = (typeId: string) => {
   if (loading.value || success.value) return;
 
-  // Work Project는 현재 비활성화
+  // Work Project는 현재 개발 중 → Waitlist로 유도
   if (typeId === 'project') {
-    error.value = 'Work Projects are currently under development. Please select another project type.';
+    emit('show-waitlist');
     return;
   }
 
@@ -414,12 +414,6 @@ const handleCreate = async () => {
   if (!projectName.value) return alert("Please enter a project name");
   if (!connectedWallet.value) return alert("Please connect your wallet first");
 
-  // Work Project는 현재 비활성화
-  if (projectType.value === 'project') {
-    error.value = 'Work Projects are currently under development. Please select another project type.';
-    return;
-  }
-
   loading.value = true;
   error.value = '';
   success.value = false;
@@ -545,17 +539,17 @@ const handleCreate = async () => {
               :class="[
                 'type-card',
                 { active: projectType === type.id },
-                { 'disabled-type': type.id === 'project' }
+                { 'waitlist-type': type.id === 'project' }
               ]"
               @click="selectProjectType(type.id)"
               type="button"
-              :disabled="loading || success || type.id === 'project'"
+              :disabled="loading || success"
             >
               <span class="type-icon">{{ type.icon }}</span>
               <span class="type-label">{{ type.label }}</span>
               <span class="type-description">{{ type.description }}</span>
-              <span v-if="type.id === 'project'" class="dev-badge">
-                🚧 Under Development
+              <span v-if="type.id === 'project'" class="waitlist-badge">
+                📝 Join Waitlist
               </span>
             </button>
           </div>
@@ -906,16 +900,14 @@ const handleCreate = async () => {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.type-card.disabled-type {
-  opacity: 0.4;
-  border-color: #444;
+.type-card.waitlist-type {
+  border-color: #6366f1;
   position: relative;
-  cursor: not-allowed;
 }
 
-.type-card.disabled-type:hover {
-  border-color: #444;
-  background: #111;
+.type-card.waitlist-type:hover {
+  border-color: #818cf8;
+  background: rgba(99, 102, 241, 0.05);
 }
 
 .github-required-badge {
@@ -929,11 +921,11 @@ const handleCreate = async () => {
   display: inline-block;
 }
 
-.dev-badge {
+.waitlist-badge {
   font-size: 0.7rem;
-  color: #9ca3af;
-  background: rgba(156, 163, 175, 0.1);
-  border: 1px solid rgba(156, 163, 175, 0.3);
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
   padding: 4px 8px;
   border-radius: 4px;
   margin-top: 4px;
