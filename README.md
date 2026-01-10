@@ -20,6 +20,8 @@ Here is a comprehensive `README.md` file tailored to the project we have built t
 
 > **Note:** Demo video will be uploaded during hackathon submission. Current working build is deployed on devnet with full on-chain verification.
 
+[Youtube](https://youtu.be/B8_9dLCnt5I)
+
 ## 🌟 Key Features
 
 * **Proof of Habit (PoH):**
