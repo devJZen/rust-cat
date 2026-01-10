@@ -11,6 +11,9 @@ supabase-add-payment-tx.sql
 supabase-schema-SECURE.sql
 SUPABASE_GITHUB_AUTH.md
 frontend/SETUP-DB.md
+frontend/SUPABASE-DELETE-FIX.md
+frontend/supabase-delete-policies.sql
+frontend/supabase-fix-delete-cascade.sql
 frontend/supabase-schema-user-profiles.sql
 
 # Node

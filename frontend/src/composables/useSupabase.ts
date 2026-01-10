@@ -119,11 +119,46 @@ export function useSupabase() {
 
   // 프로젝트 삭제
   const deleteProject = async (projectId: string) => {
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', projectId)
-    return { error }
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId)
+
+      if (error) {
+        console.error('Delete project error:', error);
+        // RLS 정책 에러인 경우
+        if (error.code === '42501') {
+          throw new Error('Permission denied. You can only delete your own projects.');
+        }
+        throw error;
+      }
+
+      return { error: null };
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+      return { error: err instanceof Error ? err : new Error('Failed to delete project') };
+    }
+  }
+
+  // 사용자 프로필 삭제
+  const deleteUserProfile = async (walletAddress: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('wallet_address', walletAddress)
+
+      if (error) {
+        console.error('Delete profile error:', error);
+        throw error;
+      }
+
+      return { error: null };
+    } catch (err) {
+      console.error('Failed to delete profile:', err);
+      return { error: err instanceof Error ? err : new Error('Failed to delete profile') };
+    }
   }
 
   // ===== User Profile 관리 =====
@@ -207,6 +242,7 @@ export function useSupabase() {
     getMyProjects,
     getAllProjects,
     deleteProject,
+    deleteUserProfile,
     getUserProfile,
     upsertUserProfile,
     updateGithubConnection,
