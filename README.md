@@ -2,6 +2,10 @@ Here is a comprehensive `README.md` file tailored to the project we have built t
 
 # Garden SOL ⚡️
 
+![herosection](./SCR-20260110-iidg.png)
+![Project Treasury Details](./SCR-20260110-ihzj.png)
+![leader board](./SCR-20260110-iiju.png)
+
 **Garden SOL** is a Web3-native **habit-forming platform** that transforms team goals into on-chain commitments. It leverages financial incentives to reinforce positive behaviors, visualizing progress through pixel art grids.
 
 > **Origin Story:** This project was born from discovering that GitHub contribution graphs can be manipulated through commit date spoofing. We realized that genuine accountability requires immutable, on-chain verification - something GitHub's centralized system cannot provide. Garden SOL solves this by anchoring habit tracking to the Solana blockchain, where timestamps are cryptographically guaranteed and cannot be retroactively modified.
@@ -160,6 +164,7 @@ Project wallets are deterministically derived using:
 This ensures each user can create multiple projects with unique names.
 
 ## 📖 Blog & Articles
+![Blog](./SCR-20260110-iimq.png)
 
 **[The GitHub Commit Date Manipulation Project: Why We Built Garden SOL](./BLOG-ORIGIN-STORY.md)**
 
