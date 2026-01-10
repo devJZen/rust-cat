@@ -261,6 +261,7 @@ onUnmounted(() => {
         v-if="showWalletInfo"
         @close="showWalletInfo = false"
         @disconnect="isWalletConnected = false; isAppMode = false; router.push('/'); showWalletInfo = false; walletAddress = '';"
+        @show-waitlist="showWalletInfo = false; router.push('/waitlist');"
       />
     </Transition>
 

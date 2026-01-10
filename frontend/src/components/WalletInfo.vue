@@ -3,10 +3,10 @@ import { ref, onMounted } from 'vue';
 import { useSupabase, type UserProfile } from '../composables/useSupabase';
 
 // --- Props & Emits ---
-const emit = defineEmits(['close', 'disconnect']);
+const emit = defineEmits(['close', 'disconnect', 'show-waitlist']);
 
 // --- Composables ---
-const { getUserProfile } = useSupabase();
+const { getUserProfile, loginWithGithub, supabase } = useSupabase();
 
 // --- State ---
 const walletAddress = ref('');
@@ -83,6 +83,31 @@ const handleDisconnect = async () => {
   }
 };
 
+const handleGithubConnect = async () => {
+  try {
+    await loginWithGithub(false);
+  } catch (err) {
+    console.error('GitHub login failed:', err);
+    alert('GitHub authentication failed. Please try again.');
+  }
+};
+
+const handleGithubDisconnect = async () => {
+  try {
+    await supabase.auth.signOut();
+    // 프로필 다시 불러오기
+    await fetchWalletInfo();
+  } catch (err) {
+    console.error('GitHub disconnect failed:', err);
+    alert('Failed to disconnect GitHub. Please try again.');
+  }
+};
+
+const handleJiraConnect = () => {
+  // Jira는 아직 개발 중 → Waitlist로 유도
+  emit('show-waitlist');
+};
+
 onMounted(() => {
   fetchWalletInfo();
 });
@@ -126,61 +151,69 @@ onMounted(() => {
 
         <!-- Integrations Section -->
         <div class="info-section integrations-section">
-          <div class="section-label">Connected Integrations</div>
+          <div class="section-label">Integrations</div>
 
           <div v-if="loadingProfile" class="integration-loading">
             <div class="small-spinner"></div>
             <span>Loading integrations...</span>
           </div>
 
-          <div v-else-if="!userProfile" class="no-integrations">
-            <span class="no-integration-icon">🔗</span>
-            <p>No integrations connected yet</p>
-          </div>
-
           <div v-else class="integrations-list">
             <!-- GitHub Integration -->
-            <div class="integration-item" :class="{ connected: userProfile.github_connected }">
-              <div class="integration-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                </svg>
+            <div class="integration-card" :class="{ connected: userProfile?.github_connected }">
+              <div class="integration-header">
+                <div class="integration-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                </div>
+                <div class="integration-text">
+                  <div class="integration-name">GitHub</div>
+                  <div v-if="userProfile?.github_connected" class="integration-status">
+                    @{{ userProfile.github_handle }}
+                  </div>
+                  <div v-else class="integration-description">
+                    Connect to enable Work Projects
+                  </div>
+                </div>
               </div>
-              <div class="integration-info">
-                <span class="integration-name">GitHub</span>
-                <span v-if="userProfile.github_connected" class="integration-handle">
-                  @{{ userProfile.github_handle }}
-                </span>
-                <span v-else class="integration-status-text">Not connected</span>
-              </div>
-              <div v-if="userProfile.github_connected" class="integration-badge connected-badge">
-                ✓ Connected
-              </div>
-              <div v-else class="integration-badge disconnected-badge">
-                Not connected
-              </div>
+              <button
+                v-if="!userProfile?.github_connected"
+                @click="handleGithubConnect"
+                class="btn-integration-action btn-connect"
+              >
+                Connect
+              </button>
+              <button
+                v-else
+                @click="handleGithubDisconnect"
+                class="btn-integration-action btn-disconnect-integration"
+              >
+                Disconnect
+              </button>
             </div>
 
             <!-- Jira Integration -->
-            <div class="integration-item" :class="{ connected: userProfile.jira_connected }">
-              <div class="integration-icon jira-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.483V1.005A1.005 1.005 0 0 0 23.013 0Z"/>
-                </svg>
+            <div class="integration-card">
+              <div class="integration-header">
+                <div class="integration-icon jira-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.483V1.005A1.005 1.005 0 0 0 23.013 0Z"/>
+                  </svg>
+                </div>
+                <div class="integration-text">
+                  <div class="integration-name">Jira</div>
+                  <div class="integration-description">
+                    Coming soon
+                  </div>
+                </div>
               </div>
-              <div class="integration-info">
-                <span class="integration-name">Jira</span>
-                <span v-if="userProfile.jira_connected" class="integration-handle">
-                  {{ userProfile.jira_domain }}
-                </span>
-                <span v-else class="integration-status-text">Not connected</span>
-              </div>
-              <div v-if="userProfile.jira_connected" class="integration-badge connected-badge">
-                ✓ Connected
-              </div>
-              <div v-else class="integration-badge disconnected-badge">
-                Coming Soon
-              </div>
+              <button
+                @click="handleJiraConnect"
+                class="btn-integration-action btn-waitlist"
+              >
+                Join Waitlist
+              </button>
             </div>
           </div>
         </div>
@@ -468,37 +501,17 @@ onMounted(() => {
   animation: spin 1s linear infinite;
 }
 
-.no-integrations {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 30px 20px;
-  text-align: center;
-}
-
-.no-integration-icon {
-  font-size: 2.5rem;
-  margin-bottom: 12px;
-  opacity: 0.5;
-}
-
-.no-integrations p {
-  margin: 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
 .integrations-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.integration-item {
+.integration-card {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 16px;
   padding: 16px;
   background: #0a0a0a;
   border: 1px solid #222;
@@ -506,14 +519,22 @@ onMounted(() => {
   transition: all 0.2s;
 }
 
-.integration-item.connected {
+.integration-card.connected {
   border-color: rgba(74, 222, 128, 0.3);
   background: rgba(74, 222, 128, 0.03);
 }
 
+.integration-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
 .integration-icon {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -522,9 +543,10 @@ onMounted(() => {
   border: 1px solid #333;
   color: #888;
   flex-shrink: 0;
+  transition: all 0.2s;
 }
 
-.integration-item.connected .integration-icon {
+.integration-card.connected .integration-icon {
   border-color: rgba(74, 222, 128, 0.4);
   color: #4ade80;
   background: rgba(74, 222, 128, 0.05);
@@ -532,9 +554,10 @@ onMounted(() => {
 
 .integration-icon.jira-icon {
   color: #0052cc;
+  border-color: rgba(0, 82, 204, 0.3);
 }
 
-.integration-info {
+.integration-text {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -543,41 +566,64 @@ onMounted(() => {
 }
 
 .integration-name {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: white;
 }
 
-.integration-handle {
+.integration-status {
   font-size: 0.85rem;
   color: #4ade80;
   font-family: monospace;
 }
 
-.integration-status-text {
+.integration-description {
   font-size: 0.8rem;
   color: #666;
 }
 
-.integration-badge {
-  padding: 6px 12px;
-  border-radius: 12px;
-  font-size: 0.75rem;
+.btn-integration-action {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 0.85rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.connected-badge {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.3);
+.btn-connect {
+  background: #4ade80;
+  border: none;
+  color: #000;
 }
 
-.disconnected-badge {
-  background: rgba(136, 136, 136, 0.1);
-  color: #666;
-  border: 1px solid #333;
+.btn-connect:hover {
+  background: #22c55e;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.btn-disconnect-integration {
+  background: transparent;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+
+.btn-disconnect-integration:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #dc2626;
+}
+
+.btn-waitlist {
+  background: transparent;
+  border: 1px solid #6366f1;
+  color: #818cf8;
+}
+
+.btn-waitlist:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: #818cf8;
 }
 
 /* Responsive */
@@ -594,13 +640,17 @@ onMounted(() => {
     width: 100%;
   }
 
-  .integration-item {
-    flex-wrap: wrap;
+  .integration-card {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .integration-badge {
+  .integration-header {
     width: 100%;
-    text-align: center;
+  }
+
+  .btn-integration-action {
+    width: 100%;
   }
 }
 </style>
