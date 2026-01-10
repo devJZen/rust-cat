@@ -3,7 +3,7 @@ Here is a comprehensive `README.md` file tailored to the project we have built t
 # Garden SOL ⚡️
 
 ![herosection](./SCR-20260110-iidg.png)
-![Project Treasury Details](./SCR-20260110-ihzj.png)
+![project treasury details](./SCR-20260110-innp.png)
 ![leader board](./SCR-20260110-iiju.png)
 
 **Garden SOL** is a Web3-native **habit-forming platform** that transforms team goals into on-chain commitments. It leverages financial incentives to reinforce positive behaviors, visualizing progress through pixel art grids.
