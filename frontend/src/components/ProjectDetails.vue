@@ -67,6 +67,12 @@ const selectedMilestone = ref<Milestone | null>(null);
 const showMilestoneModal = ref(false);
 const copiedCommand = ref(false);
 
+// Collapsible sections state
+const isProjectInfoExpanded = ref(false);
+const isTechnicalDetailsExpanded = ref(false);
+const isFundingHistoryExpanded = ref(false);
+const isPaymentExpanded = ref(false);
+
 // --- Computed ---
 const progressPercent = computed(() => {
   return Math.round((props.project.tasksCompleted / props.project.totalTasks) * 100);
@@ -377,57 +383,71 @@ onMounted(async () => {
 
           <!-- LEFT COLUMN: Metadata -->
           <div class="column column-left">
-            <div class="info-card">
-              <h3>ℹ️ Project Information</h3>
-              <div class="metadata-list">
-                <div class="meta-row">
-                  <span class="meta-label">Created:</span>
-                  <span class="meta-value">{{ formatDate(project.createdAt) }}</span>
-                </div>
-                <div class="meta-row">
-                  <span class="meta-label">Project ID:</span>
-                  <span class="meta-value code">{{ shortAddress(project.pda) }}</span>
-                </div>
-                <div class="meta-row">
-                  <span class="meta-label">Total Tasks:</span>
-                  <span class="meta-value">{{ project.totalTasks }} milestones</span>
+            <div class="info-card collapsible-card">
+              <div class="collapsible-header" @click="isProjectInfoExpanded = !isProjectInfoExpanded">
+                <h3>ℹ️ Project Information</h3>
+                <span class="chevron" :class="{ expanded: isProjectInfoExpanded }">▶</span>
+              </div>
+              <div class="collapsible-content" :class="{ expanded: isProjectInfoExpanded }">
+                <div class="metadata-list">
+                  <div class="meta-row">
+                    <span class="meta-label">Created:</span>
+                    <span class="meta-value">{{ formatDate(project.createdAt) }}</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Project ID:</span>
+                    <span class="meta-value code">{{ shortAddress(project.pda) }}</span>
+                  </div>
+                  <div class="meta-row">
+                    <span class="meta-label">Total Tasks:</span>
+                    <span class="meta-value">{{ project.totalTasks }} milestones</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- Technical Details -->
-            <div v-if="onChainData" class="info-card technical-card">
-              <h3>⚙️ Technical Details</h3>
-              <div class="technical-info">
-                <div class="tech-row">
-                  <span class="tech-label">Program Owner:</span>
-                  <code class="tech-value">{{ shortAddress(onChainData.owner) }}</code>
-                </div>
-                <div class="tech-row">
-                  <span class="tech-label">Executable:</span>
-                  <span class="tech-value">{{ onChainData.executable ? 'Yes' : 'No' }}</span>
-                </div>
-                <div class="tech-row">
-                  <span class="tech-label">Rent Lamports:</span>
-                  <span class="tech-value">{{ onChainData.lamports.toLocaleString() }}</span>
+            <div v-if="onChainData" class="info-card technical-card collapsible-card">
+              <div class="collapsible-header" @click="isTechnicalDetailsExpanded = !isTechnicalDetailsExpanded">
+                <h3>⚙️ Technical Details</h3>
+                <span class="chevron" :class="{ expanded: isTechnicalDetailsExpanded }">▶</span>
+              </div>
+              <div class="collapsible-content" :class="{ expanded: isTechnicalDetailsExpanded }">
+                <div class="technical-info">
+                  <div class="tech-row">
+                    <span class="tech-label">Program Owner:</span>
+                    <code class="tech-value">{{ shortAddress(onChainData.owner) }}</code>
+                  </div>
+                  <div class="tech-row">
+                    <span class="tech-label">Executable:</span>
+                    <span class="tech-value">{{ onChainData.executable ? 'Yes' : 'No' }}</span>
+                  </div>
+                  <div class="tech-row">
+                    <span class="tech-label">Rent Lamports:</span>
+                    <span class="tech-value">{{ onChainData.lamports.toLocaleString() }}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- Funding History Ticker -->
-            <div class="info-card funding-history-card">
-              <div class="card-header">
-                <h3>💸 Funding History</h3>
-                <span v-if="loadingHistory" class="loading-badge">Loading...</span>
+            <div class="info-card funding-history-card collapsible-card">
+              <div class="collapsible-header" @click="isFundingHistoryExpanded = !isFundingHistoryExpanded">
+                <div class="header-left">
+                  <h3>💸 Funding History</h3>
+                  <span v-if="loadingHistory" class="loading-badge">Loading...</span>
+                </div>
+                <span class="chevron" :class="{ expanded: isFundingHistoryExpanded }">▶</span>
               </div>
 
-              <div v-if="fundingHistory.length === 0 && !loadingHistory" class="empty-state">
-                <span class="empty-icon">📭</span>
-                <p>No funding transactions yet</p>
-                <small>Be the first to fund this project!</small>
-              </div>
+              <div class="collapsible-content" :class="{ expanded: isFundingHistoryExpanded }">
+                <div v-if="fundingHistory.length === 0 && !loadingHistory" class="empty-state">
+                  <span class="empty-icon">📭</span>
+                  <p>No funding transactions yet</p>
+                  <small>Be the first to fund this project!</small>
+                </div>
 
-              <div v-else class="funding-ticker">
+                <div v-else class="funding-ticker">
                 <div
                   v-for="tx in fundingHistory"
                   :key="tx.signature"
@@ -448,6 +468,7 @@ onMounted(async () => {
                   >
                     🔍 View TX
                   </a>
+                </div>
                 </div>
               </div>
             </div>
@@ -599,26 +620,31 @@ onMounted(async () => {
             </div>
 
             <!-- Payment Transaction Section -->
-            <div v-if="project.payment_tx" class="info-card payment-card">
-              <div class="card-header">
-                <h3>💳 Payment</h3>
-                <span class="badge badge-success">Confirmed</span>
+            <div v-if="project.payment_tx" class="info-card payment-card collapsible-card">
+              <div class="collapsible-header" @click="isPaymentExpanded = !isPaymentExpanded">
+                <div class="header-left">
+                  <h3>💳 Payment</h3>
+                  <span class="badge badge-success">Confirmed</span>
+                </div>
+                <span class="chevron" :class="{ expanded: isPaymentExpanded }">▶</span>
               </div>
 
-              <div class="payment-info">
-                <div class="info-row">
-                  <span class="label">Amount:</span>
-                  <span class="value balance">0.1 SOL</span>
+              <div class="collapsible-content" :class="{ expanded: isPaymentExpanded }">
+                <div class="payment-info">
+                  <div class="info-row">
+                    <span class="label">Amount:</span>
+                    <span class="value balance">0.1 SOL</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">TX:</span>
+                    <code class="tx-hash">{{ shortAddress(project.payment_tx) }}</code>
+                  </div>
                 </div>
-                <div class="info-row">
-                  <span class="label">TX:</span>
-                  <code class="tx-hash">{{ shortAddress(project.payment_tx) }}</code>
-                </div>
-              </div>
 
-              <a :href="paymentExplorerUrl" target="_blank" class="btn-explorer btn-explorer-payment">
-                🔍 View TX →
-              </a>
+                <a :href="paymentExplorerUrl" target="_blank" class="btn-explorer btn-explorer-payment">
+                  🔍 View TX →
+                </a>
+              </div>
             </div>
           </div>
 
@@ -888,6 +914,64 @@ onMounted(async () => {
   font-size: 1.1rem;
   margin: 0 0 16px 0;
   color: white;
+}
+
+/* Collapsible Cards */
+.collapsible-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.collapsible-header:hover {
+  background: rgba(74, 222, 128, 0.03);
+}
+
+.collapsible-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.chevron {
+  color: #888;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.chevron.expanded {
+  transform: rotate(90deg);
+  color: #4ade80;
+}
+
+.collapsible-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, padding 0.3s ease;
+  padding: 0 24px;
+}
+
+.collapsible-content.expanded {
+  max-height: 2000px;
+  padding: 0 24px 20px 24px;
 }
 
 .card-header {
@@ -1293,7 +1377,7 @@ onMounted(async () => {
   }
 
   .details-modal {
-    max-width: 900px;
+    max-width: 800px;
   }
 }
 
@@ -1315,7 +1399,7 @@ onMounted(async () => {
   }
 
   .details-modal {
-    max-width: 100%;
+    max-width: 90%;
   }
 }
 
@@ -1336,7 +1420,7 @@ onMounted(async () => {
   background: #0a0a0a;
   border: 1px solid #333;
   border-radius: 16px;
-  width: 100%;
+  width: 80%;
   max-width: 500px;
   animation: slideUp 0.3s ease;
   overflow: hidden;
