@@ -90,6 +90,29 @@ onMounted(async () => {
         connectedWallet.value = publicKey.toString();
       }
     }
+
+    // Phantom 지갑 변경 감지 (accountChanged 이벤트)
+    // @ts-expect-error - Phantom wallet global
+    if (window.solana) {
+      // @ts-expect-error - Phantom wallet API
+      window.solana.on('accountChanged', (publicKey: any) => {
+        if (publicKey) {
+          const newAddress = publicKey.toString();
+          console.log('⚠️ Wallet address changed:', newAddress);
+          connectedWallet.value = newAddress;
+
+          // GitHub 연동 해제 (지갑이 바뀌면 다시 연동 필요)
+          isGithubConnected.value = false;
+          githubUserHandle.value = '';
+          githubUserName.value = '';
+          githubUserEmail.value = '';
+          githubAvatarUrl.value = '';
+        } else {
+          console.log('⚠️ Wallet disconnected');
+          connectedWallet.value = '';
+        }
+      });
+    }
   } catch (err) {
     console.error('Failed to get wallet address:', err);
   }
@@ -418,15 +441,47 @@ const handleCreate = async () => {
   error.value = '';
   success.value = false;
 
+  try {
+    // 0️⃣ Phantom 지갑 주소 실시간 검증
+    console.log('Validating wallet address...');
+    let currentWalletAddress = '';
+    try {
+      // @ts-expect-error - Phantom wallet global
+      if (!window.solana || !window.solana.isConnected) {
+        throw new Error('Wallet is not connected. Please reconnect your Phantom wallet.');
+      }
+
+      // @ts-expect-error - Phantom wallet API
+      const currentPublicKey = window.solana.publicKey;
+      if (!currentPublicKey) {
+        throw new Error('Unable to get wallet address. Please reconnect your Phantom wallet.');
+      }
+
+      currentWalletAddress = currentPublicKey.toString();
+
+      // 저장된 지갑 주소와 현재 Phantom 지갑 주소 비교
+      if (currentWalletAddress !== connectedWallet.value) {
+        error.value = `Wallet address mismatch! Please refresh the page.\n\nExpected: ${connectedWallet.value}\nCurrent: ${currentWalletAddress}`;
+        loading.value = false;
+        return;
+      }
+
+      console.log('✅ Wallet address validated:', currentWalletAddress);
+    } catch (err) {
+      console.error('Wallet validation error:', err);
+      error.value = err instanceof Error ? err.message : 'Failed to validate wallet address';
+      loading.value = false;
+      return;
+    }
+
   // Admin은 현재 연결된 지갑
-  const validAdmins = [connectedWallet.value];
+  const validAdmins = [currentWalletAddress];
   // 유효한 멤버만 필터링
   const validMembers = members.value.filter(m => m.length > 30);
 
-  try {
-    // 0️⃣ 중복 프로젝트 이름 체크
+    // 1️⃣ 중복 프로젝트 이름 체크
     console.log('Checking for duplicate project names...');
-    const { data: existingProjects, error: checkError } = await getMyProjects(connectedWallet.value);
+    const { data: existingProjects, error: checkError } = await getMyProjects(currentWalletAddress);
 
     if (checkError) {
       console.warn('Failed to check existing projects:', checkError);
@@ -476,7 +531,7 @@ const handleCreate = async () => {
         const { data, error: createError } = await createProject({
           name: projectName.value,
           type: projectType.value as 'project' | 'betting' | 'savings' | 'fundraising',
-          creator_wallet: connectedWallet.value,
+          creator_wallet: currentWalletAddress,
           admins: validAdmins,
           members: validMembers,
           pda: pdaAddress,
