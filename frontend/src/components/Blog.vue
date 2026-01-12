@@ -1,5 +1,27 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { marked } from 'marked';
+
+// Configure marked for better rendering
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+  headerIds: false,
+  mangle: false
+});
+
+// Custom renderer for special formatting
+const renderer = new marked.Renderer();
+const originalListItem = renderer.listitem.bind(renderer);
+renderer.listitem = (text: string, task: boolean, checked: boolean) => {
+  // Style list items that start with checkmark emoji
+  if (text.startsWith('✅ ')) {
+    return `<li class="check-item">${text}</li>`;
+  }
+  return originalListItem(text, task, checked);
+};
+
+marked.use({ renderer });
 
 interface BlogPost {
   id: string;
@@ -252,6 +274,10 @@ const openPost = (post: BlogPost) => {
 const closePost = () => {
   selectedPost.value = null;
 };
+
+const parseMarkdown = (content: string) => {
+  return marked.parse(content);
+};
 </script>
 
 <template>
@@ -307,16 +333,7 @@ const closePost = () => {
             <div class="post-tags">
               <span v-for="tag in selectedPost.tags" :key="tag" class="tag">{{ tag }}</span>
             </div>
-            <div class="post-body" v-html="selectedPost.content.split('\n').map(line => {
-              if (line.startsWith('# ')) return '<h1>' + line.slice(2) + '</h1>';
-              if (line.startsWith('## ')) return '<h2>' + line.slice(3) + '</h2>';
-              if (line.startsWith('### ')) return '<h3>' + line.slice(4) + '</h3>';
-              if (line.startsWith('**') && line.endsWith('**')) return '<strong>' + line.slice(2, -2) + '</strong>';
-              if (line.startsWith('✅ ')) return '<div class=\'check-item\'>' + line + '</div>';
-              if (line.startsWith('- ')) return '<li>' + line.slice(2) + '</li>';
-              if (line.trim().startsWith('```')) return line.includes('```') && !line.trim().startsWith('```') ? '</code></pre>' : '<pre><code>';
-              return line ? '<p>' + line + '</p>' : '<br>';
-            }).join('')"></div>
+            <div class="post-body" v-html="parseMarkdown(selectedPost.content)"></div>
           </div>
         </div>
       </div>
@@ -561,14 +578,48 @@ const closePost = () => {
   font-weight: 600;
 }
 
-.post-body :deep(li) {
-  margin: 8px 0;
-  margin-left: 20px;
+.post-body :deep(ul),
+.post-body :deep(ol) {
+  margin: 16px 0;
+  padding-left: 24px;
 }
 
-.post-body :deep(.check-item) {
-  padding: 8px 0;
+.post-body :deep(li) {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.post-body :deep(li.check-item) {
   color: #4ade80;
+  font-weight: 500;
+  list-style: none;
+  margin-left: -20px;
+}
+
+.post-body :deep(a) {
+  color: #4ade80;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(74, 222, 128, 0.3);
+  transition: all 0.2s;
+}
+
+.post-body :deep(a:hover) {
+  border-bottom-color: #4ade80;
+  color: #22c55e;
+}
+
+.post-body :deep(blockquote) {
+  border-left: 3px solid #4ade80;
+  padding-left: 16px;
+  margin: 16px 0;
+  color: #888;
+  font-style: italic;
+}
+
+.post-body :deep(hr) {
+  border: none;
+  border-top: 1px solid #222;
+  margin: 24px 0;
 }
 
 .post-body :deep(pre) {
@@ -580,10 +631,42 @@ const closePost = () => {
   margin: 16px 0;
 }
 
-.post-body :deep(code) {
-  font-family: monospace;
+.post-body :deep(pre code) {
+  font-family: 'Monaco', 'Consolas', monospace;
   color: #4ade80;
   font-size: 0.9rem;
+  background: transparent;
+  padding: 0;
+  border: none;
+}
+
+.post-body :deep(code) {
+  font-family: 'Monaco', 'Consolas', monospace;
+  color: #4ade80;
+  background: #111;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.9rem;
+  border: 1px solid #222;
+}
+
+.post-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.post-body :deep(table th),
+.post-body :deep(table td) {
+  border: 1px solid #222;
+  padding: 10px;
+  text-align: left;
+}
+
+.post-body :deep(table th) {
+  background: #111;
+  color: #4ade80;
+  font-weight: 600;
 }
 
 /* Animations */
