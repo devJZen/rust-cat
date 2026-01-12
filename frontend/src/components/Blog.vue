@@ -69,23 +69,64 @@ We're building the future of decentralized project management. Join us on this j
     content: `
 # The Architecture Behind Garden SOL
 
+**🔗 Solana Program (On-Chain)**: [View on GitHub](https://github.com/devJZen/rust-cat/tree/main/programs/garden_sol)
+
 Building a production Web3 app means making smart trade-offs between **decentralization** and **user experience**. Here's how we designed Garden SOL.
 
 ## Hybrid Architecture Philosophy
 
 **Not everything belongs on-chain.** We carefully chose what to store where:
 
-### On-Chain (Solana Program Accounts)
+### On-Chain (Solana Program - Anchor Framework)
 ✅ Project ownership & permissions (immutable)
 ✅ Treasury balances (PDAs control funds)
-✅ Task completion milestones (for bounty distribution)
+✅ Admin & member access control
+✅ Project creation & funding
 ✅ Trustless verification of project state
 
-### Off-Chain (Supabase Database)
+**Technology Stack:**
+- **Anchor Framework** (Rust) - Solana program development
+- **Program Derived Addresses (PDAs)** - Deterministic project wallets
+- **Solana Devnet** - Testing environment
+
+**Key Instructions:**
+- \`create_project\` - Initialize project with PDA treasury
+- \`fund_treasury\` - Add SOL to project wallet
+- \`add_admin\` / \`add_member\` - Manage permissions
+- \`update_integrations\` - Enable GitHub/Jira
+
+### Off-Chain (Backend Infrastructure)
 ✅ Fast search/filtering (SQL queries)
-✅ Rich metadata (descriptions, images)
+✅ Rich metadata (descriptions, images, names)
 ✅ Cost-effective storage (Solana storage is expensive)
-✅ Integration settings (GitHub, Jira)
+✅ Integration settings (GitHub OAuth, Jira)
+✅ User profiles with wallet addresses
+✅ Audit logs for project changes
+
+**Technology Stack:**
+- **Supabase** - PostgreSQL database + Auth
+- **Row Level Security (RLS)** - Database-level permissions
+- **GitHub OAuth** - Social authentication
+- **Supabase Realtime** - Live data synchronization
+
+**Database Tables:**
+- \`projects\` - Project metadata, names, deadlines
+- \`user_profiles\` - GitHub/Jira connections per wallet
+- \`project_audit_log\` - Change history tracking
+- \`waitlist\` - Early access signups
+
+### Frontend (Vue 3 + TypeScript)
+✅ Phantom wallet integration
+✅ Real-time project dashboard
+✅ Pixel art progress visualization
+✅ GitHub/Jira integration UI
+
+**Technology Stack:**
+- **Vue 3** (Composition API) - Reactive UI
+- **TypeScript** - Type safety
+- **@solana/web3.js** - Blockchain interaction
+- **@project-serum/anchor** - Program client
+- **Netlify** - Deployment & hosting
 
 ## Why This Works
 
@@ -93,26 +134,56 @@ Leading Web3 projects use similar patterns:
 - **Magic Eden**: Trades on-chain, UI/search in database
 - **OpenSea**: NFT ownership on-chain, metadata on IPFS/DB
 - **Dialect**: Messages on-chain, read receipts off-chain
+- **Tensor**: Analytics off-chain, ownership on-chain
 
 ## Data Flow
 
 \`\`\`
-User Wallet → Garden SOL Frontend (Vue 3)
-              ↓                    ↓
-        Solana Network      Supabase Database
-        • Project PDAs      • Metadata
-        • Treasury          • Settings
-        • Milestones        • UI State
+User (Phantom Wallet)
+        ↓
+Vue 3 Frontend (Netlify)
+        ↓
+   ┌────┴────┐
+   ↓         ↓
+Solana      Supabase
+Program     Database
+(Anchor)    (PostgreSQL)
+   ↓         ↓
+Project     Project
+PDA         Metadata
+Treasury    & Settings
 \`\`\`
+
+**Example: Creating a Project**
+1. User connects Phantom wallet
+2. Frontend calls Solana program \`create_project\`
+3. Program creates PDA treasury on-chain
+4. Frontend stores metadata in Supabase
+5. User funds treasury with 0.1 SOL
+6. Dashboard displays project with pixel grid
+
+## Security & Trust Model
+
+**On-Chain (Trustless)**:
+- Project ownership is cryptographically verified
+- Treasury funds are controlled by program logic
+- Access control enforced by Solana runtime
+
+**Off-Chain (Trust Minimized)**:
+- Supabase RLS policies enforce permissions
+- OAuth tokens stored securely (encrypted)
+- Audit logs track all changes
+- Data can be verified against on-chain state
 
 ## Future: Full Decentralization
 
 We're exploring:
-- **IPFS/Arweave** for permanent storage
+- **IPFS/Arweave** for permanent metadata storage
 - **Ceramic Network** as decentralized database alternative
 - **The Graph** for indexing on-chain events
+- **GenesysGo Shadow Drive** for Solana-native storage
 
-Stay tuned for updates!
+**Want to contribute?** Check out our [GitHub repository](https://github.com/devJZen/rust-cat) and join the discussion!
     `
   },
   {
