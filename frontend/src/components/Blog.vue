@@ -5,20 +5,19 @@ import { marked } from 'marked';
 // Configure marked for better rendering
 marked.setOptions({
   breaks: true,
-  gfm: true,
-  headerIds: false,
-  mangle: false
+  gfm: true
 });
 
 // Custom renderer for special formatting
 const renderer = new marked.Renderer();
 const originalListItem = renderer.listitem.bind(renderer);
-renderer.listitem = (text: string, task: boolean, checked: boolean) => {
+renderer.listitem = (item: any) => {
+  const text = item.text || '';
   // Style list items that start with checkmark emoji
   if (text.startsWith('✅ ')) {
     return `<li class="check-item">${text}</li>`;
   }
-  return originalListItem(text, task, checked);
+  return originalListItem(item);
 };
 
 marked.use({ renderer });
