@@ -1,3 +1,14 @@
+I didn't allow copy my project.
+and Solana Student Hackathon has been delay at leat Month.
+I share my repository and available [web site](https://rust-cat.netlify.app/) on TG along delay time.
+And [3rd Team](https://github.com/Archdiner/commitment-parties) copy my project add improve things and Win.
+I suggest on TG but Judge's didn't allow and kick me TG.
+2nd Team Leader said on Twitter "Fuck up".
+2nd Team Leader is manager Hackathon TG.
+So didn't commit for Solana and Blockchain.
+Thanks for Solana.
+---
+
 Here is a comprehensive `README.md` file tailored to the project we have built together. It covers the features, tech stack, design references, and setup instructions.
 
 # Garden SOL ⚡️
