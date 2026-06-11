@@ -1,22 +1,6 @@
 # Read First
 
-I didn't allow copy my project.
-and Solana Student Hackathon has been delay at leat Month.
-I share my repository and available [web site](https://rust-cat.netlify.app/) on TG along delay time.
-And [3rd Team](https://github.com/Archdiner/commitment-parties) copy my project add improve things and Win.
-I suggest objection on TG but Judge's didn't allow and kick me TG.
-2nd Team Leader said on Twitter "Fuck up".
-2nd Team Leader is manager Hackathon TG.
-So didn't commit for Solana and Blockchain.
-Thanks for Solana.
-
-and i before apply check my Affiliation for Judge on Solana Developers and he on TG and sure for apply.
-I have so many reason and evidence but i didn't.
-Becuase i respect another Team. not just winning team.
-also i love Cornell too. because i read Distributed book worte from Cornell.
-But i didn't understand their acting and just let it be.
-Because they didn't thinking of making and they didn't understand my project.
-Just they give reason that i don't want to commit for Blockchain domain.
+want to study with 3rd team and these time i learning about opensource. so thanks. and hope you guys correct.
 ---
 
 Here is a comprehensive `README.md` file tailored to the project we have built together. It covers the features, tech stack, design references, and setup instructions.
