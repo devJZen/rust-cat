@@ -1,6 +1,9 @@
 # Read First
 
-want to study with 3rd team and these time i learning about opensource. so thanks. and hope you guys correct.
+want to study with 3rd team and these time i learning about opensource. so thanks.
+and i learn about 'What is solve the problem.' also  [Linus Torvalds's thinking of Git](https://youtu.be/sCr_gb8rdEI).
+What is attractive for users is differen way. Git is made for many developers study anywhere. and i learn about DAG but i didn't deeply think about 'why can change HASH?' futhermore it's necassary for developers.
+
 ---
 
 Here is a comprehensive `README.md` file tailored to the project we have built together. It covers the features, tech stack, design references, and setup instructions.
