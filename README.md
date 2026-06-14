@@ -194,7 +194,7 @@ The UI/UX is crafted with a focus on "Dark Mode" aesthetics and high-fidelity in
   * Heavily inspired by the **[Dropbox Brand Guidelines](https://brand.dropbox.com/)**. We utilize a full-screen dynamic grid layout that fills with color as tasks are completed, mimicking the Dropbox "mosaic" visual identity.
 * **Hero Layout:**
 
-  * Reference: **[Reducto.ai via Mobbin](https://mobbin.com/)**. The typography hierarchy and "Zoom-out to App" flow were adapted from modern SaaS landing page trends.
+  * Reference: **[Reducto.ai](https://reducto.ai/) via [Mobbin](https://mobbin.com/)**. The typography hierarchy and "Zoom-out to App" flow were adapted from modern SaaS landing page trends.
 
 ## 🛠 Tech Stack
 
