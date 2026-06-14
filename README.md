@@ -1,8 +1,13 @@
 # Read First
 
-want to study with 3rd team and these time i learning about opensource. so thanks.
+## Apology for acting emotionally
+
+[Linus Torvalds on git](https://youtu.be/4XpnKHJAok8)
+
+These time i learning about opensource. so thanks.
 and i learn about 'What is solve the problem.' also  [Linus Torvalds's thinking of Git](https://youtu.be/sCr_gb8rdEI).
-What is attractive for users is differen way. Git is made for many developers study anywhere. and i learn about DAG but i didn't deeply think about 'why can change HASH?' futhermore it's necassary for developers.
+What is attractive for users is differen way. Git is made for many developers study anywhere.
+and i learn about DAG but i didn't deeply think about 'why can change HASH?' futhermore it's necassary for developers.
 
 ---
 
@@ -157,8 +162,6 @@ Blockchain isn't a gimmick here. **It's the entire point.**
 >
 > [https://github.com/devJZen/git-log-hack](https://github.com/devJZen/git-log-hack)
 >
-> [https://x.com/devJZen/status/2006156367623774671?s=20
-> ](repository)
 
 # 🎥 Demo Video
 
